@@ -33,7 +33,6 @@ class AreaPreparacion(UbicacionFisica_Repo):
             detallearea.id_ubicacionfisica = self.id
             detallearea.terminalsalida = self.terminalsalida
             detallearea.telefono = self.telefono
-
         else:
             detallearea.terminalsalida = self.terminalsalida
             detallearea.telefono = self.telefono
@@ -70,11 +69,16 @@ class AreaPreparacion(UbicacionFisica_Repo):
                 #Lo recomendable es cachar la excepcion y llamar una funcion para propagarla mas arriba
                 print ("Existe un error al tratar de guardar el objeto %err", e.pgcode)
 
-    def get(self, id_ubicacionfisica): 
+    def get(self, id_ubicacionfisica):
         super(AreaPreparacion, self).get(id_ubicacionfisica)
-        area_detalle = DetalleUbicacion.objects.get(id_ubicacionfisica=id_ubicacionfisica)
-        self.terminalsalida = area_detalle.terminalsalida
-        self.telefono = area_detalle.telefono
+        try:
+            detallearea = DetalleUbicacion.objects.get(id_ubicacionfisica=id_ubicacionfisica)
+            self.terminalsalida = area_detalle.terminalsalida
+            self.telefono = area_detalle.telefono
+        except DetalleUbicacion.DoesNotExist:
+            #print("El detalle de la ubicacion fisica no existe")
+            self.terminalsalida = None
+            self.telefono = None
 
     def get_stock(self, registromaestro): 
         # Este metodo recibe como parametro un registro maestro para devolver el monto en existencias de este en el almacen

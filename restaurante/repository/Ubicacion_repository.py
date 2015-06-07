@@ -126,11 +126,24 @@ class UbicacionFisica_Repo(object):
         return DetalleUbicacion.objects.get(id_ubicacionfisica=self.id).values_list('saldoactual', flat=True)
 
 #Obtener la ubicacion fisica y su detalle por su Id
-    @classmethod
-    def get(cls, id_ubicacionfisica):
-        #uf = Ubiccion Fisica
-        #ud = Ubicacion Fisica Detalle
-        uf = UbicacionFisica.objects.get(id=id_ubicacionfisica)
-        ud = DetalleUbicacion.objects.get(id_ubicacionfisica=id_ubicacionfisica)
-        return cls(uf.nombre, uf.descripcion, uf.sucursal, uf.tipo, ud.direccion, ud.telefono, ud.horarioinicio, ud.horariofin, ud.terminalsalida, ud.minimocomensales, ud.maximocomensales)
-
+    @abstractmethod
+    def get(self, id_ubicacionfisica):
+        try:
+            ubicacionfisica = UbicacionFisica.objects.get(id=id_ubicacionfisica)
+            self.id = ubicacionfisica.id
+            self.nombre = ubicacionfisica.nombre
+            self.descripcion = ubicacionfisica.descripcion
+            self.sucursal = ubicacionfisica.id_sucursalsistema
+            self.tipo = ubicacionfisica.tipo
+            #TODO agregar campo default para Ubicacion Fisica self.default = ubicacionfisica.
+            self.cuentacontable = ubicacionfisica.cuenta_contable
+            self.estatus = ubicacionfisica.estatus
+        except DetalleUbicacion.DoesNotExist:
+            self.id = None
+            self.nombre = None
+            self.descripcion = None
+            self.sucursal = None
+            self.tipo = None
+            #TODO agregar campo default para Ubicacion Fisica self.default = ubicacionfisica.
+            self.cuentacontable = None
+            self.estatus = None
