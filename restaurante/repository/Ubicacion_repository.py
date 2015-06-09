@@ -58,11 +58,14 @@ class UbicacionFisica_Repo(object):
     @abstractmethod
     def disable(self):
         # *Validacion de que la ubicacion fisica no sea asociada con Documento no cerrado
-        if DetalleDocumento.objects.get(Q(id_ubicacionfisica1=self.id),~Q(estatus='C') | Q(id_ubicacionfisica2=self.id),~Q(estatus='C')):
+        if DetalleDocumento.objects.filter(id_ubicacionfisica1=self.id).exclude(estatus='C').count():
+            raise ValueError("Ubicacion fisica %uf esta en estatus diferente de cerrado")
+
+        if DetalleDocumento.objects.filter(id_ubicacionfisica2=self.id).exclude(estatus='C').count():
             raise ValueError("Ubicacion fisica %uf esta en estatus diferente de cerrado")
 
         # *Validacion de que la ubicacion fisica no sea asociada con Cuenta Contable con saldo diferente de cero
-        if LibroCuentacontable.objects.get(id_cuentacontable=self.cuentacontable,saldo__gt=0):
+        if LibroCuentacontable.objects.filter(id_cuentacontable=self.cuentacontable,saldo__gt=0).count():
             raise ValueError("La cuenta contable %uf tiene un saldo mayor a 0" % self.cuentacontable)
 
     #Asignar la ubicacion fisica como default para la sucursal (lease almacen de recepcion de mercancias)

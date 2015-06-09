@@ -54,10 +54,10 @@ class AreaPreparacion(UbicacionFisica_Repo):
         # *Validacion de que la ubicacion fisica no sea asociada con Registro Maestro con saldo diferente de cero
         #Registros con existencia mayor a cero
 
-        if LibroCuentacontable.objects.get(id_cuentacontable=self.cuentacontable, saldo__gt=0):
-            raise ValueError("La cuenta contable %uf tiene un saldo mayor a 0" % self.cuentacontable)
+        #if LibroCuentacontable.objects.filter(id_cuentacontable=self.cuentacontable, saldo__gt=0).count():
+        #    raise ValueError("La cuenta contable %uf tiene un saldo mayor a 0" % self.cuentacontable)'
 
-        if RegmaestroUbicacionfisica.objects.get(id_ubicacionfisica=self.id, existencias__gt=0):
+        if RegmaestroUbicacionfisica.objects.filter(id_ubicacionfisica=self.id, existencias__gt=0):
             raise ValueError("Ubicacion fisica %uf aun tiene existencias" % self.id)
         else:
             area = UbicacionFisica.objects.get(id=self.id)
@@ -73,8 +73,8 @@ class AreaPreparacion(UbicacionFisica_Repo):
         super(AreaPreparacion, self).get(id_ubicacionfisica)
         try:
             detallearea = DetalleUbicacion.objects.get(id_ubicacionfisica=id_ubicacionfisica)
-            self.terminalsalida = area_detalle.terminalsalida
-            self.telefono = area_detalle.telefono
+            self.terminalsalida = detallearea.terminalsalida
+            self.telefono = detallearea.telefono
         except DetalleUbicacion.DoesNotExist:
             #print("El detalle de la ubicacion fisica no existe")
             self.terminalsalida = None
