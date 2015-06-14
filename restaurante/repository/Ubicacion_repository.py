@@ -69,11 +69,14 @@ class UbicacionFisica_Repo(object):
             raise ValueError("La cuenta contable %uf tiene un saldo mayor a 0" % self.cuentacontable)
 
     #Asignar la ubicacion fisica como default para la sucursal (lease almacen de recepcion de mercancias)
-    @abstractmethod
+    '''@abstractmethod
     def set_default(self): 
         #Poniendo a default=false todas las ubicaciones fisicas
         if self.default is False:
-            ubicacionfisica = UbicacionFisica.objects.filter(tipo=self.tipo, estatus=self.estatus, default=True).update(default=False)
+            try:
+                ubicacionfisica = UbicacionFisica.objects.filter(tipo=self.tipo, default=True).update(default=False)
+            except:
+                print ("Ubicacion fisica no encontrada")
             # La ubicacion fisica se marca como default
             ubicacionfisica = UbicacionFisica.objects.get(id=self.id)
             ubicacionfisica.default=True
@@ -83,7 +86,7 @@ class UbicacionFisica_Repo(object):
             except IntegrityError as e:
                 #Lo recomendable es cachar la excepcion y llamar una funcion para propagarla mas arriba
                 print ("Existe un error al tratar de guardar el objeto %err", e.pgcode)
-    
+    '''
     #Asignar/Desasignar usuario a/de la ubicacion fisica (add, del)
     @abstractmethod
     def user(self,usuario,accion): 
@@ -93,30 +96,33 @@ class UbicacionFisica_Repo(object):
             if self.is_user(usuario) is False:
                 # De momento esta tabla no existe ni en la BD ni en el modelo
                 ubicacion_usuario =  AuthUser_UbicacionFisica (
-                    id_ubicacionfisica = self.id,
-                    id_usuario = usuario.id
+                    ubicacionfisica = self.id,
+                    user = usuario
                     )
                 try:
                     with transaction.atomic():
                         ubicacion_usuario.save()
                 except IntegrityError as e:
                     #Lo recomendable es cachar la excepcion y llamar una funcion para propagarla mas arriba
-                    print ("Existe un error al tratar de guardar el objeto %err", e.pgcode)
+                    print ("Existe un error al tratar de guardar el objeto")
 
         if accion == 'del' :
             # Revisar que el usuario este asociado a la ubicacion fisica
             if self.is_user(usuario) is True:
                 # Borrando el registro de la tabla
-                AuthUser_UbicacionFisica.objects.filter(id_ubicacionfisica=self.id, id_usuario=usuario.id).delete()
+                AuthUser_UbicacionFisica.objects.filter(ubicacionfisica=self.id, user=usuario).delete()
 
     @abstractmethod
     def is_user(self,usuario):
         #Verificar si determinado usuario esta asociado a la ubicacion fisica
         # Buscar en AuthUser_UbicacionFisica por la relacion con el usuario
-        if AuthUser_UbicacionFisica.objects.get(id_ubicacionfisica=self.id, id_usuario=usuario.id):
-           return True
-        else:
-           return False
+        try:
+            if AuthUser_UbicacionFisica.objects.filter(ubicacionfisica=self.id, user=usuario):
+                return True
+            else:
+                return False
+        except AuthUser_UbicacionFisica.DoesNotExist:
+            return False
 
     #Obtener las existencias de un registro maestro en la ubicacion
     @abstractmethod
@@ -126,7 +132,7 @@ class UbicacionFisica_Repo(object):
     #Obtener el balance (Saldo Actual) de la ubicacion fisica
     @abstractmethod
     def get_balance(self): 
-        return DetalleUbicacion.objects.get(id_ubicacionfisica=self.id).values_list('saldoactual', flat=True)
+        return DetalleUbicacion.objects.filter(id_ubicacionfisica=self.id).values_list('saldoactual', flat=True)
 
 #Obtener la ubicacion fisica y su detalle por su Id
     @abstractmethod
@@ -138,7 +144,7 @@ class UbicacionFisica_Repo(object):
             self.descripcion = ubicacionfisica.descripcion
             self.sucursal = ubicacionfisica.id_sucursalsistema
             self.tipo = ubicacionfisica.tipo
-            #TODO agregar campo default para Ubicacion Fisica self.default = ubicacionfisica.
+            self.default = ubicacionfisica.default
             self.cuentacontable = ubicacionfisica.cuenta_contable
             self.estatus = ubicacionfisica.estatus
         except DetalleUbicacion.DoesNotExist:
@@ -147,6 +153,6 @@ class UbicacionFisica_Repo(object):
             self.descripcion = None
             self.sucursal = None
             self.tipo = None
-            #TODO agregar campo default para Ubicacion Fisica self.default = ubicacionfisica.
+            self.default = None
             self.cuentacontable = None
             self.estatus = None

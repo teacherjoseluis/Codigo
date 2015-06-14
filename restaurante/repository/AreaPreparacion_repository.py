@@ -82,4 +82,8 @@ class AreaPreparacion(UbicacionFisica_Repo):
 
     def get_stock(self, registromaestro): 
         # Este metodo recibe como parametro un registro maestro para devolver el monto en existencias de este en el almacen
-        return RegmaestroUbicacionfisica.objects.get(id_ubicacionfisica=self.id, id_registromaestro=registromaestro.id).values_list('existencias', flat=True)
+        try:
+         existencias = RegmaestroUbicacionfisica.objects.filter(id_ubicacionfisica=self.id, id_registromaestro=registromaestro).values_list('existencias', flat=True)
+        except RegmaestroUbicacionfisica.DoesNotExist:
+         existencias = None
+        return existencias

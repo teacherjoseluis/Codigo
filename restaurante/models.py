@@ -561,6 +561,7 @@ class UbicacionFisica(models.Model):
     nombre = models.CharField(db_column='Nombre', max_length=255, blank=True)  # Field name made lowercase.
     descripcion = models.TextField(db_column='Descripcion', blank=True)  # Field name made lowercase.
     tipo = models.CharField(db_column='Tipo', max_length=255, blank=True)  # Field name made lowercase.
+    default = models.BooleanField(db_column='Default', max_length=255, blank=True)  # Field name made lowercase.
     id_subcuentacontable = models.IntegerField(db_column='Id_SubCuentaContable', blank=True, null=True)  # Field name made lowercase.
     estatus = models.CharField(db_column='Estatus', max_length=255, blank=True)  # Field name made lowercase.
     cuenta_contable = models.IntegerField(db_column='Cuenta_Contable', blank=True, null=True)  # Field name made lowercase.
@@ -723,9 +724,15 @@ class DjangoSession(models.Model):
 
 class AuthUser_UbicacionFisica(models.Model):
     id = models.IntegerField(primary_key=True)  # AutoField?
-    user = models.ForeignKey(AuthUser)
-    ubicacionfisica = models.ForeignKey(UbicacionFisica)
+    user = models.IntegerField(db_column='user', blank=True, null=True)  # Field name made lowercase.
+    ubicacionfisica = models.IntegerField(db_column='ubicacionfisica', blank=True, null=True)  # Field name made lowercase.
 
     class Meta:
         managed = False
         db_table = 'AuthUser_UbicacionFisica'
+
+    def save(self, *args, **kwargs):
+        if not self.id:
+            pid = pgSQL_Utils()
+            self.id = pid.prefetch_id(self)
+        super(AuthUser_UbicacionFisica, self).save(*args, **kwargs)
