@@ -1,8 +1,5 @@
-import sys
-import abc
 from django.db import IntegrityError
 from django.db import transaction
-from django.db.models import Q
 
 from restaurante.models import UbicacionFisica, DetalleUbicacion, RegmaestroUbicacionfisica, LibroCuentacontable
 from restaurante.repository.Ubicacion_repository import UbicacionFisica_Repo #Importando clase abstracta de Ubicacion Fisica
@@ -20,6 +17,7 @@ class AreaPreparacion(UbicacionFisica_Repo):
         self.id = None
         self.terminalsalida = None
         self.telefono = None
+        self.horariorecepcion = None
 
     def save(self): 
         super(AreaPreparacion, self).save() #Se salva la informacion de la Ubicacion Fisica de la clase abstracta
@@ -33,9 +31,11 @@ class AreaPreparacion(UbicacionFisica_Repo):
             detallearea.id_ubicacionfisica = self.id
             detallearea.terminalsalida = self.terminalsalida
             detallearea.telefono = self.telefono
+            detallearea.horariorecepcion = self.horariorecepcion
         else:
             detallearea.terminalsalida = self.terminalsalida
             detallearea.telefono = self.telefono
+            detallearea.horariorecepcion = self.horariorecepcion
 
         try:
             with transaction.atomic():
@@ -75,10 +75,12 @@ class AreaPreparacion(UbicacionFisica_Repo):
             detallearea = DetalleUbicacion.objects.get(id_ubicacionfisica=id_ubicacionfisica)
             self.terminalsalida = detallearea.terminalsalida
             self.telefono = detallearea.telefono
+            self.horariorecepcion = detallearea.horariorecepcion
         except DetalleUbicacion.DoesNotExist:
             #print("El detalle de la ubicacion fisica no existe")
             self.terminalsalida = None
             self.telefono = None
+            self.horariorecepcion = None
 
     def get_stock(self, registromaestro): 
         # Este metodo recibe como parametro un registro maestro para devolver el monto en existencias de este en el almacen
