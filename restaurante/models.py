@@ -736,3 +736,13 @@ class AuthUser_UbicacionFisica(models.Model):
             pid = pgSQL_Utils()
             self.id = pid.prefetch_id(self)
         super(AuthUser_UbicacionFisica, self).save(*args, **kwargs)
+
+
+class TipoCuentaContable(models.Model):
+    id = models.IntegerField(db_column='ID', primary_key=True)  # Field name made lowercase.
+    tipo = models.IntegerField(db_column='TipoContable', blank=True, null=True)  # Field name made lowercase.
+    instancia = models.CharField(db_column='Entidad_Instancia', max_length=255, blank=True)  # Field name made lowercase.
+
+    class Meta:
+        managed = False
+        db_table = 'Tipo_CuentaContable'

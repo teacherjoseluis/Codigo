@@ -13,7 +13,7 @@ import os
 BASE_DIR = os.path.dirname(os.path.dirname(__file__))
 
 
-# Quick-start development settings - unsuitable for production
+# Quick-start development settings0 - unsuitable for production
 # See https://docs.djangoproject.com/en/1.7/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
@@ -55,7 +55,7 @@ WSGI_APPLICATION = 'restaurante.wsgi.application'
 
 
 # Database
-# https://docs.djangoproject.com/en/1.7/ref/settings/#databases
+# https://docs.djangoproject.com/en/1.7/ref/settings0/#databases
 
 DATABASES = {
     'default': {
@@ -89,3 +89,4 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/1.7/howto/static-files/
 
 STATIC_URL = '/static/'
+TEST_RUNNER = 'restaurante.test_settings.ManagedModelTestRunner'

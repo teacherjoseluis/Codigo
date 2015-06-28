@@ -1,7 +1,7 @@
 from django.db import IntegrityError
 from django.db import transaction
 
-from restaurante.models import UbicacionFisica, DetalleUbicacion, RegmaestroUbicacionfisica, LibroCuentacontable
+from restaurante.models import UbicacionFisica, DetalleUbicacion, RegmaestroUbicacionfisica, TipoCuentaContable
 from restaurante.repository.Ubicacion_repository import UbicacionFisica_Repo #Importando clase abstracta de Ubicacion Fisica
 
 #from restaurante.data_object.CuentaContable_dataobject import CuentaContable_Repo # clase de repositorio
@@ -11,8 +11,9 @@ class AreaPreparacion(UbicacionFisica_Repo):
     def __init__(self):
         #Inicializando la clase abstracta
         #Codigo agrupador de Inventario (no usar textos) - 115 - Se considera a la area de preparacion como almacen
-        tipo = 115
-        # Se propone algo como: tipo = CuentaContable.get_tipo(self.__class__.__name__), esperando recibir este mismo 115 solo que esta informacion ya estaria contenida en un catalogo de BD
+        #tipo = 115
+        #tipo = TipoCuentaContable.objects.filter(instancia=self.__class__.__name__).values_list('tipo', flat=True)
+        tipo = int(''.join(map(str,TipoCuentaContable.objects.filter(instancia=self.__class__.__name__).values_list('tipo', flat=True))))
         super(AreaPreparacion, self).__init__(tipo)
         #Campos adicionales de Ubicacion Fisica que corresponden al Area de Preparacion - Detalle Ubicacion Fisica
         self.id = None

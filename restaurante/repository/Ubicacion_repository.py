@@ -3,8 +3,9 @@ from Lib.abc import ABCMeta, abstractmethod # Clase para el manejo de clases abs
 from django.db import IntegrityError
 from django.db import transaction
 from django.db.models import Q
-from restaurante.models import UbicacionFisica, DetalleUbicacion, LibroCuentacontable, DetalleDocumento, AuthUser_UbicacionFisica
+from restaurante.models import UbicacionFisica, DetalleUbicacion, LibroCuentacontable, DetalleDocumento, AuthUser_UbicacionFisica, SucursalSistema
 from restaurante.data_object.CuentaContable_dataobject import CuentaContable_Repo # clase de repositorio
+from django.core.exceptions import ObjectDoesNotExist
 
 #from django.db.models import Max
 #Clase Abstracta
@@ -16,6 +17,7 @@ class UbicacionFisica_Repo(object):
         self.nombre = None
         self.descripcion = None
         self.sucursal = None
+        #self.tipo = int(''.join(map(str, tipo)))
         self.tipo = tipo
         self.default = False
         self.cuentacontable = None
@@ -31,7 +33,15 @@ class UbicacionFisica_Repo(object):
     def save(self):
         if self.id is None:
             ubicacionfisica = UbicacionFisica()
-            ubicacionfisica.id_sucursalsistema = self.sucursal
+            if self.sucursal is not None:
+                #int(''.join(map(str,SucursalSistema.objects.filter(id=self.sucursal).values_list('id', flat=True))))
+                if not SucursalSistema.objects.filter(id=self.sucursal):
+                    raise(ObjectDoesNotExist)
+                #print ("La sucursal proporcionada no fue encontrada")
+            else:
+                raise(ValueError)
+                #ubicacionfisica.id_sucursalsistema = self.sucursal
+
             try:
                  cuenta_ubicacionfisica = CuentaContable_Repo(self.nombre, self.tipo, self.sucursal)
                  cuenta_ubicacionfisica.save()

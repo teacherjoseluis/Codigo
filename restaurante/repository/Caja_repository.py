@@ -1,7 +1,7 @@
 from django.db import IntegrityError
 from django.db import transaction
 
-from restaurante.models import UbicacionFisica, DetalleUbicacion, RegmaestroUbicacionfisica, LibroCuentacontable
+from restaurante.models import UbicacionFisica, DetalleUbicacion, RegmaestroUbicacionfisica, LibroCuentacontable, TipoCuentaContable
 from restaurante.repository.Ubicacion_repository import UbicacionFisica_Repo #Importando clase abstracta de Ubicacion Fisica
 
 class Caja(UbicacionFisica_Repo):
@@ -9,7 +9,7 @@ class Caja(UbicacionFisica_Repo):
     def __init__(self):
         #Inicializando la clase abstracta
         #Codigo agrupador de Caja (no usar textos)
-        tipo = 101
+        tipo = int(''.join(map(str,TipoCuentaContable.objects.filter(instancia=self.__class__.__name__).values_list('tipo', flat=True))))
         super(Caja, self).__init__(tipo)
         #Campos adicionales de Ubicacion Fisica que corresponden a la Caja
         self.id = None

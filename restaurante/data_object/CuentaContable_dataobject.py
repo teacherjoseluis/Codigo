@@ -4,7 +4,6 @@ from django.db import transaction
 from django.db import DatabaseError
 from django.db.models import Q
 from restaurante.models import CuentaContable, SucursalSistema
-#TODO agregar al modelo una entidad que contenga el nombre de las clases y su tipo contable
 #from django.db.models import Max
 
 #Clase Abstracta
@@ -21,9 +20,9 @@ class CuentaContable_Repo(object):
         # Obteniendo la cuentacontable del padre a partir del tipo de cuenta
         try:
             self.cuentacontable_padre = CuentaContable.objects.get(id_cliente=self.cliente,sub_tipo=self.tipo,id_subcuentacontable=None).id
-        except DatabaseError as e:
+        except CuentaContable.DoesNotExist:
             #Lo recomendable es cachar la excepcion y llamar una funcion para propagarla mas arriba
-            print ("Existe un error al tratar de guardar el objeto %err", e.pgcode)
+            raise(CuentaContable.DoesNotExist)
 
     def __str__(self):
         return "%s" % (self.nombre)
@@ -51,10 +50,3 @@ class CuentaContable_Repo(object):
         except IntegrityError:
             #Lo recomendable es cachar la excepcion y llamar una funcion para propagarla mas arriba
             print ("Existe un error al tratar de guardar el objeto")
-    
-    # Metodo para la obtencion del tipo contable en funcion del objeto que manda a llamar
-    def get_tipo(self, classname) #El nombre de la clase es enviado mediante self.__class__.__name__
-        pass
-    #Deshabilita la cuentacontable
-    #def disable(self):
-    #    pass
