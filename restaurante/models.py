@@ -746,3 +746,18 @@ class TipoCuentaContable(models.Model):
     class Meta:
         managed = False
         db_table = 'Tipo_CuentaContable'
+
+class AuthUser_Sucursal(models.Model):
+    id = models.IntegerField(primary_key=True)  # AutoField?
+    user = models.IntegerField(db_column='user', blank=True, null=True)  # Field name made lowercase.
+    sucursal = models.IntegerField(db_column='sucursal', blank=True, null=True)  # Field name made lowercase.
+
+    class Meta:
+        managed = False
+        db_table = 'AuthUser_Sucursal'
+
+    def save(self, *args, **kwargs):
+        if not self.id:
+            pid = pgSQL_Utils()
+            self.id = pid.prefetch_id(self)
+        super(AuthUser_Sucursal, self).save(*args, **kwargs)

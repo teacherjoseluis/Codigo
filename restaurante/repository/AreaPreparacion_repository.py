@@ -1,5 +1,6 @@
 from django.db import IntegrityError
 from django.db import transaction
+from django.core.exceptions import ObjectDoesNotExist
 
 from restaurante.models import UbicacionFisica, DetalleUbicacion, RegmaestroUbicacionfisica, TipoCuentaContable
 from restaurante.repository.Ubicacion_repository import UbicacionFisica_Repo #Importando clase abstracta de Ubicacion Fisica
@@ -13,7 +14,7 @@ class AreaPreparacion(UbicacionFisica_Repo):
         #Codigo agrupador de Inventario (no usar textos) - 115 - Se considera a la area de preparacion como almacen
         #tipo = 115
         #tipo = TipoCuentaContable.objects.filter(instancia=self.__class__.__name__).values_list('tipo', flat=True)
-        tipo = int(''.join(map(str,TipoCuentaContable.objects.filter(instancia=self.__class__.__name__).values_list('tipo', flat=True))))
+        tipo = str(''.join(map(str,TipoCuentaContable.objects.filter(instancia=self.__class__.__name__).values_list('tipo', flat=True))))
         super(AreaPreparacion, self).__init__(tipo)
         #Campos adicionales de Ubicacion Fisica que corresponden al Area de Preparacion - Detalle Ubicacion Fisica
         self.id = None
@@ -87,7 +88,8 @@ class AreaPreparacion(UbicacionFisica_Repo):
     def get_stock(self, registromaestro): 
         # Este metodo recibe como parametro un registro maestro para devolver el monto en existencias de este en el almacen
         try:
-         existencias = RegmaestroUbicacionfisica.objects.filter(id_ubicacionfisica=self.id, id_registromaestro=registromaestro).values_list('existencias', flat=True)
-        except RegmaestroUbicacionfisica.DoesNotExist:
-         existencias = None
+            existencias = int(''.join(map(str, RegmaestroUbicacionfisica.objects.filter(id_ubicacionfisica=self.id, id_registromaestro=registromaestro).values_list('existencias', flat=True))))
+            #existencias = RegmaestroUbicacionfisica.objects.filter(id_ubicacionfisica=self.id, id_registromaestro=registromaestro).values_list('existencias', flat=True)
+        except ValueError:
+         raise(ObjectDoesNotExist)
         return existencias

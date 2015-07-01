@@ -3,7 +3,7 @@ from Lib.abc import ABCMeta, abstractmethod # Clase para el manejo de clases abs
 from django.db import IntegrityError
 from django.db import transaction
 from django.db.models import Q
-from restaurante.models import UbicacionFisica, DetalleUbicacion, LibroCuentacontable, DetalleDocumento, AuthUser_UbicacionFisica, SucursalSistema
+from restaurante.models import UbicacionFisica, DetalleUbicacion, LibroCuentacontable, DetalleDocumento, AuthUser_UbicacionFisica, AuthUser_Sucursal, SucursalSistema, TipoCuentaContable
 from restaurante.data_object.CuentaContable_dataobject import CuentaContable_Repo # clase de repositorio
 from django.core.exceptions import ObjectDoesNotExist
 
@@ -21,7 +21,7 @@ class UbicacionFisica_Repo(object):
         self.tipo = tipo
         self.default = False
         self.cuentacontable = None
-        self.estatus = 'A' #Al ser nuevo se le considera activo por default
+        self.estatus = '1' #Al ser nuevo se le considera activo por default
 
     @abstractmethod
     def __unicode__(self):
@@ -105,10 +105,13 @@ class UbicacionFisica_Repo(object):
             # Revisar que el usuario no haya sido ya asociado a la ubicacion fisica, de ya estarlo simplemente no hara nada
             if self.is_user(usuario) is False:
                 # De momento esta tabla no existe ni en la BD ni en el modelo
-                ubicacion_usuario =  AuthUser_UbicacionFisica (
+                if AuthUser_Sucursal.objects.filter(user=usuario, sucursal=self.sucursal):
+                    ubicacion_usuario =  AuthUser_UbicacionFisica (
                     ubicacionfisica = self.id,
                     user = usuario
                     )
+                else:
+                    raise(ObjectDoesNotExist)
                 try:
                     with transaction.atomic():
                         ubicacion_usuario.save()
@@ -121,6 +124,8 @@ class UbicacionFisica_Repo(object):
             if self.is_user(usuario) is True:
                 # Borrando el registro de la tabla
                 AuthUser_UbicacionFisica.objects.filter(ubicacionfisica=self.id, user=usuario).delete()
+        else:
+            raise(ValueError)
 
     @abstractmethod
     def is_user(self,usuario):
@@ -142,7 +147,7 @@ class UbicacionFisica_Repo(object):
     #Obtener el balance (Saldo Actual) de la ubicacion fisica
     @abstractmethod
     def get_balance(self): 
-        return DetalleUbicacion.objects.filter(id_ubicacionfisica=self.id).values_list('saldoactual', flat=True)
+        return int(''.join(map(str, DetalleUbicacion.objects.filter(id_ubicacionfisica=self.id).values_list('saldoactual', flat=True))))
 
 #Obtener la ubicacion fisica y su detalle por su Id
     @abstractmethod
@@ -157,12 +162,25 @@ class UbicacionFisica_Repo(object):
             self.default = ubicacionfisica.default
             self.cuentacontable = ubicacionfisica.cuenta_contable
             self.estatus = ubicacionfisica.estatus
-        except DetalleUbicacion.DoesNotExist:
-            self.id = None
-            self.nombre = None
-            self.descripcion = None
-            self.sucursal = None
-            self.tipo = None
-            self.default = None
-            self.cuentacontable = None
-            self.estatus = None
+        except ObjectDoesNotExist:
+            raise(ObjectDoesNotExist)
+        #Tipo incorrecto
+        if ubicacionfisica.tipo != str(''.join(map(str,TipoCuentaContable.objects.filter(instancia=self.__class__.__name__).values_list('tipo', flat=True)))):
+            raise(ValueError)
+
+    @classmethod
+    def get_status(self, id_ubicacionfisica):
+        estatus=str(''.join(map(str, UbicacionFisica.objects.filter(id=id_ubicacionfisica).values_list('estatus', flat=True))))
+        if estatus == '':
+            raise(ObjectDoesNotExist)
+        else:
+            return estatus
+
+    @classmethod
+    def set_status(self, id_ubicacionfisica, estatus):
+        try:
+            ubicacionfisica = UbicacionFisica.objects.get(id=id_ubicacionfisica)
+            ubicacionfisica.estatus = self.estatus
+            ubicacionfisica.save()
+        except ObjectDoesNotExist:
+            raise(ObjectDoesNotExist)
