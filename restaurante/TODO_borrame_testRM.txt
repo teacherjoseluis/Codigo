@@ -1,0 +1,9 @@
+get_registromaestro no existe
+el texto del contexto no existe
+	la ubicacion fisica asignada al registro maestro no existe (save, get)
+	crear el placeholder para contexto_pedimiento aunque de momento no haya pruebas
+	crear el placeholder para contexto_foto aunque de momento no haya pruebas
+	contexto_contabilidad. El perfil de impuesto no existe
+	contexto_compra, la presentacion de compra, presentacion de inventario y unidad de medida no existen
+	contexto_venta, la presentacion de venta, presentacion de inventario y unidad de medida no existen
+	contexto_inventario, la presentacion de inventario no existe
