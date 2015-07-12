@@ -45,7 +45,7 @@ class Caja(UbicacionFisica_Repo):
         try:
             with transaction.atomic():
                detallecaja.save()
-            #self.id = detallecaja.id Quizas no es requerido
+            self.id = detallecaja.id
         except IntegrityError as e:
             #Lo recomendable es cachar la excepcion y llamar una funcion para propagarla mas arriba
             print ("Existe un error al tratar de guardar el objeto %err", e.pgcode)

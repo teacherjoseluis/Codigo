@@ -499,6 +499,11 @@ class RegmaestroPedimento(models.Model):
         managed = False
         db_table = 'RegMaestro_Pedimento'
 
+    def save(self, *args, **kwargs):
+        if not self.id:
+            pid = pgSQL_Utils()
+            self.id = pid.prefetch_id(self)
+        super(RegmaestroPedimento, self).save(*args, **kwargs)
 
 class RegmaestroUbicacionfisica(models.Model):
     id = models.IntegerField(db_column='ID', primary_key=True)  # Field name made lowercase.
@@ -510,6 +515,11 @@ class RegmaestroUbicacionfisica(models.Model):
         managed = False
         db_table = 'RegMaestro_UbicacionFisica'
 
+    def save(self, *args, **kwargs):
+        if not self.id:
+            pid = pgSQL_Utils()
+            self.id = pid.prefetch_id(self)
+        super(RegmaestroUbicacionfisica, self).save(*args, **kwargs)
 
 class RegmaestroVenta(models.Model):
     id = models.IntegerField(db_column='ID', primary_key=True)  # Field name made lowercase.
@@ -536,6 +546,11 @@ class RegistroMaestro(models.Model):
         managed = False
         db_table = 'Registro_Maestro'
 
+    def save(self, *args, **kwargs):
+        if not self.id:
+            pid = pgSQL_Utils()
+            self.id = pid.prefetch_id(self)
+        super(RegistroMaestro, self).save(*args, **kwargs)
 
 class SucursalSistema(models.Model):
     id = models.IntegerField(db_column='ID', primary_key=True)  # Field name made lowercase.

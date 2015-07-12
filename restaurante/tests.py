@@ -8,6 +8,8 @@ from restaurante.models import *
 from restaurante.repository.AreaPreparacion_repository import AreaPreparacion
 from restaurante.repository.Ubicacion_repository import UbicacionFisica_Repo
 
+from restaurante.factory.RegMaestro_factory import RegMaestro
+
     # Ubicacion fisica
 class UFRepo_Validacion(TestCase):
     #save
@@ -112,3 +114,68 @@ class UFRepo_Validacion(TestCase):
     #""" Set status con tipo invalido """
     #def test_uf_setstatustipoinvalido(self):
     #     self.assertRaises(UbicacionFisica.ValidationError, AreaPreparacion.set_status(2, 2)) #Suponiendo que la UF 2 no corresponde al mismo tipo del AreaPreparacion
+
+
+#Registro Maestro
+class RegMas_Validacion(TestCase):
+
+    #get_registromaestro no existe
+    def test_regmas_invalido(self):
+        a = RegMaestro()
+        self.assertRaises(ObjectDoesNotExist, a.get, 999)
+
+    #la ubicacion fisica asignada al registro maestro no existe (save, get)
+    def test_regmas_uf_invalida_save(self):
+        a = RegMaestro()
+        b = a.contexto(a, "UbicacionFisica")
+        b.idubicacionfisica = 999
+        self.assertRaises(ObjectDoesNotExist, b.save)
+
+    #la ubicacion fisica asignada al registro maestro no existe (save, get)
+    def test_regmas_uf_invalida_get(self):
+        a = RegMaestro()
+        b = a.contexto(a, "UbicacionFisica")
+        self.assertRaises(ObjectDoesNotExist, b.get, 999)
+
+    #se intenta actualizar la ubicacion fisica de un registro existente
+    def test_regmas_uf_change_uf(self):
+        a = RegMaestro()
+        a.get(1)
+        b = a.contexto(a, "UbicacionFisica")
+        b.get(3)
+        b.idubicacionfisica = 2
+        self.assertRaises(ValueError, b.save)
+
+    #se intenta actualizar el registro maestro de un registro existente
+    def test_regmas_uf_change_rm(self):
+        a = RegMaestro()
+        a.get(1)
+        b = a.contexto(a, "UbicacionFisica")
+        b.get(3)
+        b.idregistromaestro = 2
+        self.assertRaises(ValueError, b.save)
+
+    #multiples ubicaciones fisicas no se pueden salvar
+    #Previamente ya existe una ubicacion fisica 1
+    def test_regmas_uf_many_uf(self):
+        a = RegMaestro()
+        a.get(1)
+        b = a.contexto(a, "UbicacionFisica")
+        b.idubicacionfisica = 3
+        self.assertRaises(ValueError, b.save)
+
+    #se intenta actualizar el registro maestro de un registro existente
+    def test_regmas_ped_change_rm(self):
+        a = RegMaestro()
+        a.get(1)
+        b = a.contexto(a, "Pedimento")
+        b.get(1)
+        b.idregistromaestro = 2
+        self.assertRaises(ValueError, b.save)
+
+    #multiples registros maestros
+    def test_regmas_ped_many_rm(self):
+        a = RegMaestro()
+        b = a.contexto(a, "Pedimento")
+        b.idregistromaestro = 1
+        self.assertRaises(ValueError, b.save)

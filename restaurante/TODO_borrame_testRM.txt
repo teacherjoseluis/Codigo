@@ -1,6 +1,8 @@
 get_registromaestro no existe
 el texto del contexto no existe
 	la ubicacion fisica asignada al registro maestro no existe (save, get)
+	se intenta actualizar la ubicacion fisica de un registro existente
+	multiples ubicaciones fisicas no se pueden salvar
 	crear el placeholder para contexto_pedimiento aunque de momento no haya pruebas
 	crear el placeholder para contexto_foto aunque de momento no haya pruebas
 	contexto_contabilidad. El perfil de impuesto no existe
