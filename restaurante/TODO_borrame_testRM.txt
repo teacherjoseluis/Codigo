@@ -9,3 +9,8 @@ el texto del contexto no existe
 	contexto_compra, la presentacion de compra, presentacion de inventario y unidad de medida no existen
 	contexto_venta, la presentacion de venta, presentacion de inventario y unidad de medida no existen
 	contexto_inventario, la presentacion de inventario no existe
+	
+#TODO - Lista de actividades pendientes para el registro maestro
+	1. Clase Clasificacion (Nombre, Estatus)
+	2. Clase Agrupador Bajo Nivel (Idregistromestro, cantidad)
+	3. Clase Agrupador Alto Nivel (Idagrupadorbajonivel, tipo, precio, inventariable, subpreparacion, etc.)
