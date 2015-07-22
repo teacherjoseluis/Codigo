@@ -124,6 +124,14 @@ class RegMas_Validacion(TestCase):
         a = RegMaestro()
         self.assertRaises(ObjectDoesNotExist, a.get, 999)
 
+    #Clasificacion para el registro maestro no existe
+    def test_regmas_clasific(self):
+        a = RegMaestro()
+        a.id_clasificacion = 999
+        a.marca = 'marca'
+        a.nombre = 'nombre'
+        self.assertRaises(ObjectDoesNotExist, a.save)
+
     #la ubicacion fisica asignada al registro maestro no existe (save, get)
     def test_regmas_uf_invalida_save(self):
         a = RegMaestro()

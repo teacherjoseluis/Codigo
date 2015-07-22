@@ -2,7 +2,7 @@ __author__ = 'teacher'
 
 from django.db import transaction
 
-from restaurante.models import RegistroMaestro, AgrupadorBajonivel, RegmaestroUbicacionfisica, RegmaestroPedimento, RegmaestroCompra, RegmaestroContabilidad, RegmaestroFoto, RegmaestroInventario, RegmaestroVenta
+from restaurante.models import RegistroMaestro, AgrupadorBajonivel, RegmaestroUbicacionfisica, RegmaestroPedimento, RegmaestroCompra, RegmaestroContabilidad, RegmaestroFoto, RegmaestroInventario, RegmaestroVenta, CatalogoClasificacion
 from django.db.models import Sum
 from django.db import IntegrityError
 from django.core.exceptions import ObjectDoesNotExist
@@ -25,6 +25,13 @@ class RegMaestro(object):
     def save(self):
         if self.id is None:
             regmaestro = RegistroMaestro()
+            if self.id_clasificacion is not None:
+                if not CatalogoClasificacion.objects.filter(id=self.id_clasificacion):
+                    raise(ObjectDoesNotExist)
+                    #print ("La sucursal proporcionada no fue encontrada")
+            else:
+                raise(ValueError)
+                #ubicacionfisica.id_sucursalsistema = self.sucursal
 
         else:
             regmaestro = RegistroMaestro.objects.get(id=self.id)

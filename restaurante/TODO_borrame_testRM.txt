@@ -12,5 +12,7 @@ el texto del contexto no existe
 	
 #TODO - Lista de actividades pendientes para el registro maestro
 	1. Clase Clasificacion (Nombre, Estatus)
-	2. Clase Agrupador Bajo Nivel (Idregistromestro, cantidad)
+	2. Clase Agrupador Bajo Nivel (Idregistromestro, cantidad) - Funcionalidad para agregar y remover registros maestros, modificar cantidades.
+	    Funcionalidad para facilitar el proceso de busqueda y validacion al momento de dar de baja un registro maestro.
 	3. Clase Agrupador Alto Nivel (Idagrupadorbajonivel, tipo, precio, inventariable, subpreparacion, etc.)
+	    Funcionalidad para la modificacion de precios, agregar y remover agrupadores a bajo nivel. La creacion de los registros del bajo nivel se haran en esta clase

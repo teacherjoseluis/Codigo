@@ -26,6 +26,12 @@ class AgrupadorAltonivel(models.Model):
         managed = False
         db_table = 'Agrupador_AltoNivel'
 
+    def save(self, *args, **kwargs):
+        if not self.id:
+            pid = pgSQL_Utils()
+            self.id = pid.prefetch_id(self)
+        super(AgrupadorAltonivel, self).save(*args, **kwargs)
+
 
 class AgrupadorBajonivel(models.Model):
     id = models.IntegerField(db_column='ID', primary_key=True)  # Field name made lowercase.
@@ -36,6 +42,11 @@ class AgrupadorBajonivel(models.Model):
         managed = False
         db_table = 'Agrupador_BajoNivel'
 
+    def save(self, *args, **kwargs):
+        if not self.id:
+            pid = pgSQL_Utils()
+            self.id = pid.prefetch_id(self)
+        super(AgrupadorBajonivel, self).save(*args, **kwargs)
 
 class AsientoContable(models.Model):
     id = models.IntegerField(db_column='ID', primary_key=True)  # Field name made lowercase.
@@ -58,6 +69,12 @@ class CatalogoClasificacion(models.Model):
     class Meta:
         managed = False
         db_table = 'Catalogo_Clasificacion'
+
+    def save(self, *args, **kwargs):
+        if not self.id:
+            pid = pgSQL_Utils()
+            self.id = pid.prefetch_id(self)
+        super(CatalogoClasificacion, self).save(*args, **kwargs)
 
 
 class ClaveFolio(models.Model):
