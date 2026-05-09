@@ -19,7 +19,7 @@ class RegMaestro(object):
         self.marca = None
         self.estatus = '1'
 
-    def __unicode__(self):
+    def __str__(self):
         return "%s" % (self.nombre)
 
     def save(self):

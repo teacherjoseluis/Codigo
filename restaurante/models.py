@@ -18,8 +18,8 @@ class AgrupadorAltonivel(models.Model):
     id_agrupadorbajonivel = models.IntegerField(db_column='Id_AgrupadorBajoNivel', blank=True, null=True)  # Field name made lowercase.
     tipo = models.CharField(db_column='Tipo', max_length=255, blank=True)  # Field name made lowercase.
     precio = models.DecimalField(db_column='Precio', max_digits=19, decimal_places=4, blank=True, null=True)  # Field name made lowercase.
-    inventariable = models.NullBooleanField(db_column='Inventariable')  # Field name made lowercase.
-    subpreparacion = models.NullBooleanField(db_column='Subpreparacion')  # Field name made lowercase.
+    inventariable = models.BooleanField(db_column='Inventariable', blank=True, null=True)  # Field name made lowercase.
+    subpreparacion = models.BooleanField(db_column='Subpreparacion', blank=True, null=True)  # Field name made lowercase.
     id_ubicacionfisica = models.IntegerField(db_column='Id_UbicacionFisica', blank=True, null=True)  # Field name made lowercase.
 
     class Meta:
@@ -54,7 +54,7 @@ class AsientoContable(models.Model):
     nombreasiento = models.CharField(db_column='NombreAsiento', max_length=255, blank=True)  # Field name made lowercase.
     id_subcuentacontablecargo = models.IntegerField(db_column='ID_SubcuentaContableCargo', blank=True, null=True)  # Field name made lowercase.
     id_subcuentacontableabono = models.IntegerField(db_column='ID_SubcuentaContableAbono', blank=True, null=True)  # Field name made lowercase.
-    montocalculado = models.NullBooleanField(db_column='MontoCalculado')  # Field name made lowercase.
+    montocalculado = models.BooleanField(db_column='MontoCalculado', blank=True, null=True)  # Field name made lowercase.
 
     class Meta:
         managed = False
@@ -87,7 +87,7 @@ class ClaveFolio(models.Model):
         managed = True 
         db_table = 'Clave_Folio'
 
-    def _str_(self):
+    def __str__(self):
         return ' '.join([self.nombredocumento, self.clavefolio,])
 
 
@@ -309,8 +309,8 @@ class MontoCalculado(models.Model):
     nombremontocalculado = models.CharField(db_column='NombreMontoCalculado', max_length=255, blank=True)  # Field name made lowercase.
     montofijo = models.DecimalField(db_column='MontoFijo', max_digits=19, decimal_places=4, blank=True, null=True)  # Field name made lowercase.
     porcentajeoperacion = models.IntegerField(db_column='PorcentajeOperacion', blank=True, null=True)  # Field name made lowercase.
-    causaimpuesto = models.NullBooleanField(db_column='CausaImpuesto')  # Field name made lowercase.
-    requiereautorizacion = models.NullBooleanField(db_column='RequiereAutorizacion')  # Field name made lowercase.
+    causaimpuesto = models.BooleanField(db_column='CausaImpuesto', blank=True, null=True)  # Field name made lowercase.
+    requiereautorizacion = models.BooleanField(db_column='RequiereAutorizacion', blank=True, null=True)  # Field name made lowercase.
     id_asientocontable = models.IntegerField(db_column='Id_AsientoContable', blank=True, null=True)  # Field name made lowercase.
     tipo = models.CharField(db_column='Tipo', max_length=255, blank=True)  # Field name made lowercase.
     estatus = models.CharField(db_column='Estatus', max_length=255, blank=True)  # Field name made lowercase.
@@ -452,7 +452,7 @@ class ProveedorRegmaestrocompra(models.Model):
     id_registromaestrocompra = models.IntegerField(db_column='Id_RegistroMaestroCompra', blank=True, null=True)  # Field name made lowercase.
     id_documentoultimo = models.IntegerField(db_column='Id_DocumentoUltimo', blank=True, null=True)  # Field name made lowercase.
     precioultimo = models.IntegerField(db_column='PrecioUltimo', blank=True, null=True)  # Field name made lowercase.
-    proveedorpreferido = models.NullBooleanField(db_column='ProveedorPreferido')  # Field name made lowercase.
+    proveedorpreferido = models.BooleanField(db_column='ProveedorPreferido', blank=True, null=True)  # Field name made lowercase.
 
     class Meta:
         managed = False
@@ -510,7 +510,7 @@ class RegmaestroPedimento(models.Model):
     id_registromaestro = models.IntegerField(db_column='Id_RegistroMaestro', blank=True, null=True)  # Field name made lowercase.
     tamanominimolote = models.IntegerField(db_column='TamanoMinimoLote', blank=True, null=True)  # Field name made lowercase.
     existenciasrequeridas = models.IntegerField(db_column='ExistenciasRequeridas', blank=True, null=True)  # Field name made lowercase.
-    plancompra = models.NullBooleanField(db_column='PlanCompra')  # Field name made lowercase.
+    plancompra = models.BooleanField(db_column='PlanCompra', blank=True, null=True)  # Field name made lowercase.
 
     class Meta:
         managed = False
@@ -593,7 +593,7 @@ class UbicacionFisica(models.Model):
     nombre = models.CharField(db_column='Nombre', max_length=255, blank=True)  # Field name made lowercase.
     descripcion = models.TextField(db_column='Descripcion', blank=True)  # Field name made lowercase.
     tipo = models.CharField(db_column='Tipo', max_length=255, blank=True)  # Field name made lowercase.
-    default = models.BooleanField(db_column='Default', max_length=255, blank=True)  # Field name made lowercase.
+    default = models.BooleanField(db_column='Default', blank=True)  # Field name made lowercase.
     id_subcuentacontable = models.IntegerField(db_column='Id_SubCuentaContable', blank=True, null=True)  # Field name made lowercase.
     estatus = models.CharField(db_column='Estatus', max_length=255, blank=True)  # Field name made lowercase.
     cuenta_contable = models.IntegerField(db_column='Cuenta_Contable', blank=True, null=True)  # Field name made lowercase.
@@ -651,8 +651,8 @@ class AuthGroup(models.Model):
 
 class AuthGroupPermissions(models.Model):
     id = models.IntegerField(primary_key=True)  # AutoField?
-    group = models.ForeignKey(AuthGroup)
-    permission = models.ForeignKey('AuthPermission')
+    group = models.ForeignKey(AuthGroup, on_delete=models.CASCADE)
+    permission = models.ForeignKey('AuthPermission', on_delete=models.CASCADE)
 
     class Meta:
         managed = False
@@ -662,7 +662,7 @@ class AuthGroupPermissions(models.Model):
 class AuthPermission(models.Model):
     id = models.IntegerField(primary_key=True)  # AutoField?
     name = models.CharField(max_length=50)
-    content_type = models.ForeignKey('DjangoContentType')
+    content_type = models.ForeignKey('DjangoContentType', on_delete=models.CASCADE)
     codename = models.CharField(max_length=100)
 
     class Meta:
@@ -690,8 +690,8 @@ class AuthUser(models.Model):
 
 class AuthUserGroups(models.Model):
     id = models.IntegerField(primary_key=True)  # AutoField?
-    user = models.ForeignKey(AuthUser)
-    group = models.ForeignKey(AuthGroup)
+    user = models.ForeignKey(AuthUser, on_delete=models.CASCADE)
+    group = models.ForeignKey(AuthGroup, on_delete=models.CASCADE)
 
     class Meta:
         managed = False
@@ -700,8 +700,8 @@ class AuthUserGroups(models.Model):
 
 class AuthUserUserPermissions(models.Model):
     id = models.IntegerField(primary_key=True)  # AutoField?
-    user = models.ForeignKey(AuthUser)
-    permission = models.ForeignKey(AuthPermission)
+    user = models.ForeignKey(AuthUser, on_delete=models.CASCADE)
+    permission = models.ForeignKey(AuthPermission, on_delete=models.CASCADE)
 
     class Meta:
         managed = False
@@ -715,8 +715,8 @@ class DjangoAdminLog(models.Model):
     object_repr = models.CharField(max_length=200)
     action_flag = models.SmallIntegerField()
     change_message = models.TextField()
-    content_type = models.ForeignKey('DjangoContentType', blank=True, null=True)
-    user = models.ForeignKey(AuthUser)
+    content_type = models.ForeignKey('DjangoContentType', blank=True, null=True, on_delete=models.SET_NULL)
+    user = models.ForeignKey(AuthUser, on_delete=models.CASCADE)
 
     class Meta:
         managed = False
