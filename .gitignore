@@ -17,6 +17,10 @@ $RECYCLE.BIN/
 # Windows shortcuts
 *.lnk
 
+# Python bytecode
+__pycache__/
+*.py[cod]
+
 # =========================
 # Operating System Files
 # =========================

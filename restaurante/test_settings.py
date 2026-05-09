@@ -1,6 +1,7 @@
 __author__ = 'teacher'
 
 from django.apps import apps
+from django.db import connections
 from django.test.runner import DiscoverRunner
 
 
@@ -27,6 +28,11 @@ class ManagedModelTestRunner(DiscoverRunner):
     excluded because their migrations create the real auth/session schemas.
     """
 
+    def setup_databases(self, **kwargs):
+        old_config = super(ManagedModelTestRunner, self).setup_databases(**kwargs)
+        self._create_prefetch_id_sequences()
+        return old_config
+
     def setup_test_environment(self, *args, **kwargs):
         self.unmanaged_models = [
             model
@@ -41,3 +47,20 @@ class ManagedModelTestRunner(DiscoverRunner):
         super(ManagedModelTestRunner, self).teardown_test_environment(*args, **kwargs)
         for m in self.unmanaged_models:
             m._meta.managed = False
+
+    def _create_prefetch_id_sequences(self):
+        connection = connections['default']
+        if connection.vendor != 'postgresql':
+            return
+
+        with connection.cursor() as cursor:
+            for model in self.unmanaged_models:
+                pk = model._meta.pk
+                if pk is None or pk.db_column != 'ID':
+                    continue
+                sequence_name = '{0}_ID_seq'.format(model._meta.db_table)
+                cursor.execute(
+                    'CREATE SEQUENCE IF NOT EXISTS {0}'.format(
+                        connection.ops.quote_name(sequence_name)
+                    )
+                )

@@ -1,13 +1,11 @@
 ''' Clase con metodos de funcionalidad adicional entre Django y PostgreSQL que no son soportadas por el modelo '''
 
-import os
-from django.db import connection, models, DatabaseError
+from django.db import connection, DatabaseError
 
 class pgSQL_Utils():
 
     def prefetch_id(self, instance):
         """ Fetch the next value in a django id autofield postgresql sequence """
-        cursor = connection.cursor()
         sql ="select nextval('\"{0}_ID_seq\"'::regclass)".format(instance._meta.db_table)
         #cursor.execute(
         # "select currval('""{0}_ID_seq""'::regclass)".format(
@@ -15,13 +13,14 @@ class pgSQL_Utils():
         #    instance._meta.db_table
         #    )
         try:
-            cursor.execute(sql)
+            with connection.cursor() as cursor:
+                cursor.execute(sql)
+                row = cursor.fetchone()
         except DatabaseError as e:
             #Lo recomendable es cachar la excepcion y llamar una funcion para propagarla mas arriba
-            print ("Existe un error al tratar de generar el id del objeto %err", e.pgcode)
-        #)
-        row = cursor.fetchone()
-        cursor.close()
+            error_code = getattr(e, 'pgcode', getattr(e.__cause__, 'sqlstate', None))
+            print ("Existe un error al tratar de generar el id del objeto %err", error_code)
+            raise
         return int(row[0])
 
 ''' Probar si es posible incluir dentro de cada clase del modelo el siguiente codigo a fin de sobrecargar el metodo save 
