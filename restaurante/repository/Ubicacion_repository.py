@@ -1,5 +1,5 @@
 import sys
-from Lib.abc import ABCMeta, abstractmethod # Clase para el manejo de clases abstractas
+from abc import ABCMeta, abstractmethod # Clase para el manejo de clases abstractas
 from django.db import IntegrityError
 from django.db import transaction
 from django.db.models import Q
@@ -24,8 +24,7 @@ class UbicacionFisica_Repo(object):
         self.estatus = '1' #Al ser nuevo se le considera activo por default
 
     @abstractmethod
-    def __unicode__(self):
-        # Sustituye a __str__
+    def __str__(self):
         return "%s" % self.nombre
 
     #Guarda o actualiza la ubicacion fisica (diferente del metodo del modelo save)
