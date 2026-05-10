@@ -3,7 +3,6 @@ from rest_framework import serializers
 from restaurante.models import (
     CatalogoClasificacion,
     Presentacion,
-    RegistroMaestro,
     SucursalSistema,
     TipoCuentaContable,
     UnidadMedida,
@@ -58,17 +57,6 @@ class RegistroMaestroSerializer(serializers.Serializer):
     id_clasificacion = serializers.IntegerField()
     marca = serializers.CharField(allow_blank=True, required=False, default='')
     estatus = serializers.CharField(allow_blank=True, required=False, default='1')
-
-    class Meta:
-        model = RegistroMaestro
-        fields = [
-            'id',
-            'nombre',
-            'tipo',
-            'id_clasificacion',
-            'marca',
-            'estatus',
-        ]
 
 
 class RegMaestroUbicacionFisicaSerializer(serializers.Serializer):
