@@ -1,6 +1,8 @@
+from django.contrib.auth import get_user_model
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import connection
 from django.test import TestCase
+from rest_framework.test import APIClient
 
 from restaurante.factory.RegMaestro_factory import RegMaestro
 from restaurante.models import (
@@ -8,12 +10,14 @@ from restaurante.models import (
     CatalogoClasificacion,
     CuentaContable,
     DetalleUbicacion,
+    Presentacion,
     RegmaestroPedimento,
     RegmaestroUbicacionfisica,
     RegistroMaestro,
     SucursalSistema,
     TipoCuentaContable,
     UbicacionFisica,
+    UnidadMedida,
 )
 from restaurante.repository.AreaPreparacion_repository import AreaPreparacion
 from restaurante.repository.Ubicacion_repository import UbicacionFisica_Repo
@@ -318,3 +322,58 @@ class RegMas_Validacion(LegacyFixtureMixin, TestCase):
         pedimento = RegmaestroPedimento.objects.get(id=1)
         self.assertEqual(pedimento.id_registromaestro, 1)
         self.assertEqual(pedimento.tamanominimolote, 30)
+
+
+class APISkeletonTests(LegacyFixtureMixin, TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.user = get_user_model().objects.create_user(
+            username='api-user',
+            password='secret',
+        )
+
+    def test_health_endpoint_is_public(self):
+        response = self.client.get('/api/v1/health/')
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data['status'], 'ok')
+        self.assertEqual(response.data['service'], 'restaurante-api')
+
+    def test_business_endpoints_require_authentication(self):
+        response = self.client.get('/api/v1/sucursales/')
+
+        self.assertIn(response.status_code, (401, 403))
+
+    def test_sucursal_list_and_detail_endpoints(self):
+        self.client.force_authenticate(user=self.user)
+
+        list_response = self.client.get('/api/v1/sucursales/')
+        detail_response = self.client.get('/api/v1/sucursales/1/')
+
+        self.assertEqual(list_response.status_code, 200)
+        self.assertEqual(len(list_response.data), 2)
+        self.assertEqual(list_response.data[0]['nombre'], 'Sucursal Centro')
+        self.assertEqual(detail_response.status_code, 200)
+        self.assertEqual(detail_response.data['identificadorcorto'], 'CEN')
+
+    def test_catalog_endpoints_return_seeded_metadata(self):
+        UnidadMedida.objects.create(id=1, unidadmedida='Kilogramo')
+        Presentacion.objects.create(
+            id=1,
+            nombrepresentacion='Caja',
+            tipo='Compra',
+        )
+        self.client.force_authenticate(user=self.user)
+
+        endpoints = {
+            '/api/v1/catalogos/clasificaciones/': 'nombreclasificacion',
+            '/api/v1/catalogos/unidades-medida/': 'unidadmedida',
+            '/api/v1/catalogos/presentaciones/': 'nombrepresentacion',
+            '/api/v1/catalogos/tipos-cuenta-contable/': 'instancia',
+        }
+
+        for endpoint, expected_field in endpoints.items():
+            response = self.client.get(endpoint)
+            self.assertEqual(response.status_code, 200)
+            self.assertGreaterEqual(len(response.data), 1)
+            self.assertIn(expected_field, response.data[0])
