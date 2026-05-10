@@ -4,8 +4,23 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from restaurante.api.permissions import SucursalScopedQuerysetMixin
 from restaurante.api.serializers import (
+    AsientoContableSerializer,
     CatalogoClasificacionSerializer,
+    ClaveFolioSerializer,
+    ClienteSistemaSerializer,
+    CuentaContableSerializer,
+    DetalleDocumentoSerializer,
+    DocumentoAsientoSerializer,
+    DocumentoConceptoSerializer,
+    DocumentoMovimientoSerializer,
+    DocumentoSerializer,
+    ExtradetalleDocumentoSerializer,
+    MovimientoContableSerializer,
+    NumeracionFolioSerializer,
+    PersonaFiscalSerializer,
+    PersonafiscalProveedorSerializer,
     PresentacionSerializer,
     RegMaestroCompraSerializer,
     RegMaestroContabilidadSerializer,
@@ -21,7 +36,21 @@ from restaurante.api.serializers import (
 )
 from restaurante.factory.RegMaestro_factory import RegMaestro
 from restaurante.models import (
+    AsientoContable,
     CatalogoClasificacion,
+    ClaveFolio,
+    ClienteSistema,
+    CuentaContable,
+    DetalleDocumento,
+    Documento,
+    DocumentoAsiento,
+    DocumentoConcepto,
+    DocumentoMovimiento,
+    ExtradetalleDocumento,
+    MovimientoContable,
+    NumeracionFolio,
+    PersonaFiscal,
+    PersonafiscalProveedor,
     Presentacion,
     RegistroMaestro,
     SucursalSistema,
@@ -43,34 +72,45 @@ class HealthAPIView(APIView):
         )
 
 
-class SucursalSistemaListAPIView(generics.ListAPIView):
+class SucursalSistemaListAPIView(SucursalScopedQuerysetMixin, generics.ListAPIView):
     serializer_class = SucursalSistemaSerializer
     queryset = SucursalSistema.objects.order_by('id')
+    search_fields = ['nombre', 'identificadorcorto']
+    ordering_fields = ['id', 'nombre', 'identificadorcorto']
 
 
-class SucursalSistemaDetailAPIView(generics.RetrieveAPIView):
+class SucursalSistemaDetailAPIView(SucursalScopedQuerysetMixin, generics.RetrieveAPIView):
     serializer_class = SucursalSistemaSerializer
     queryset = SucursalSistema.objects.order_by('id')
+    ordering_fields = ['id', 'nombre', 'identificadorcorto']
 
 
 class CatalogoClasificacionListAPIView(generics.ListAPIView):
     serializer_class = CatalogoClasificacionSerializer
     queryset = CatalogoClasificacion.objects.order_by('id')
+    search_fields = ['nombreclasificacion', 'estatus']
+    ordering_fields = ['id', 'nombreclasificacion', 'estatus']
 
 
 class UnidadMedidaListAPIView(generics.ListAPIView):
     serializer_class = UnidadMedidaSerializer
     queryset = UnidadMedida.objects.order_by('id')
+    search_fields = ['unidadmedida']
+    ordering_fields = ['id', 'unidadmedida']
 
 
 class PresentacionListAPIView(generics.ListAPIView):
     serializer_class = PresentacionSerializer
     queryset = Presentacion.objects.order_by('id')
+    search_fields = ['nombrepresentacion', 'tipo']
+    ordering_fields = ['id', 'nombrepresentacion', 'tipo']
 
 
 class TipoCuentaContableListAPIView(generics.ListAPIView):
     serializer_class = TipoCuentaContableSerializer
     queryset = TipoCuentaContable.objects.order_by('id')
+    search_fields = ['instancia']
+    ordering_fields = ['id', 'tipo', 'instancia']
 
 
 def _apply_validated_data(target, validated_data):
@@ -84,14 +124,24 @@ def _load_registro_maestro(pk):
     return registro
 
 
-class RegistroMaestroListCreateAPIView(APIView):
+class RegistroMaestroListCreateAPIView(generics.GenericAPIView):
+    serializer_class = RegistroMaestroSerializer
+    queryset = RegistroMaestro.objects.order_by('id')
+    search_fields = ['nombre', 'tipo', 'marca', 'estatus']
+    ordering_fields = ['id', 'nombre', 'tipo', 'marca', 'estatus']
+
     def get(self, request):
-        registros = RegistroMaestro.objects.order_by('id')
-        serializer = RegistroMaestroSerializer(registros, many=True)
+        registros = self.filter_queryset(self.get_queryset())
+        page = self.paginate_queryset(registros)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+
+        serializer = self.get_serializer(registros, many=True)
         return Response(serializer.data)
 
     def post(self, request):
-        serializer = RegistroMaestroSerializer(data=request.data)
+        serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
         registro = RegMaestro()
@@ -207,3 +257,221 @@ class RegistroMaestroFotoAPIView(RegistroMaestroContextAPIView):
 class RegistroMaestroUbicacionFisicaAPIView(RegistroMaestroContextAPIView):
     context_type = 'UbicacionFisica'
     serializer_class = RegMaestroUbicacionFisicaSerializer
+
+
+class DocumentoListCreateAPIView(generics.ListCreateAPIView):
+    serializer_class = DocumentoSerializer
+    queryset = Documento.objects.order_by('-fecha_hora', '-id')
+    search_fields = ['foliointerno', 'foliodocumento', 'estatus']
+    ordering_fields = ['id', 'fecha_hora', 'monto', 'estatus']
+
+
+class DocumentoDetailAPIView(generics.RetrieveUpdateAPIView):
+    serializer_class = DocumentoSerializer
+    queryset = Documento.objects.order_by('id')
+    http_method_names = ['get', 'patch', 'head', 'options']
+    search_fields = ['foliointerno', 'foliodocumento', 'estatus']
+    ordering_fields = ['id', 'fecha_hora', 'monto', 'estatus']
+
+
+class DocumentoChildListCreateAPIView(generics.ListCreateAPIView):
+    parent_url_kwarg = 'documento_id'
+    parent_field = 'id_documento'
+
+    def initial(self, request, *args, **kwargs):
+        super().initial(request, *args, **kwargs)
+        self.documento = generics.get_object_or_404(
+            Documento.objects.all(),
+            id=kwargs[self.parent_url_kwarg],
+        )
+
+    def get_queryset(self):
+        return self.model.objects.filter(
+            **{self.parent_field: self.documento.id}
+        ).order_by('id')
+
+    def perform_create(self, serializer):
+        serializer.save(**{self.parent_field: self.documento.id})
+
+
+class DocumentoChildDetailAPIView(generics.RetrieveUpdateAPIView):
+    parent_url_kwarg = 'documento_id'
+    lookup_url_kwarg = 'child_id'
+    http_method_names = ['get', 'patch', 'head', 'options']
+
+    def get_queryset(self):
+        return self.model.objects.filter(
+            **{self.parent_field: self.kwargs[self.parent_url_kwarg]}
+        ).order_by('id')
+
+
+class DocumentoDetalleListCreateAPIView(DocumentoChildListCreateAPIView):
+    serializer_class = DetalleDocumentoSerializer
+    model = DetalleDocumento
+    search_fields = ['comentarios', 'estatus']
+    ordering_fields = ['id', 'subtotal', 'estatus']
+
+
+class DocumentoDetalleDetailAPIView(DocumentoChildDetailAPIView):
+    serializer_class = DetalleDocumentoSerializer
+    model = DetalleDocumento
+    parent_field = 'id_documento'
+
+
+class DetalleExtraListCreateAPIView(DocumentoChildListCreateAPIView):
+    serializer_class = ExtradetalleDocumentoSerializer
+    model = ExtradetalleDocumento
+    parent_url_kwarg = 'detalle_id'
+    parent_field = 'id_detalledocumento'
+    ordering_fields = ['id', 'cantidad', 'costopreciototal']
+
+    def initial(self, request, *args, **kwargs):
+        APIView.initial(self, request, *args, **kwargs)
+        self.detalle = generics.get_object_or_404(
+            DetalleDocumento.objects.all(),
+            id=kwargs[self.parent_url_kwarg],
+            id_documento=kwargs['documento_id'],
+        )
+        self.documento = self.detalle
+
+
+class DocumentoMovimientoContableListCreateAPIView(DocumentoChildListCreateAPIView):
+    serializer_class = MovimientoContableSerializer
+    model = MovimientoContable
+    ordering_fields = ['id', 'id_librosucursal', 'id_documentoconcepto']
+
+
+class DocumentoMovimientoContableDetailAPIView(DocumentoChildDetailAPIView):
+    serializer_class = MovimientoContableSerializer
+    model = MovimientoContable
+    parent_field = 'id_documento'
+
+
+class DocumentoAsientoListCreateAPIView(generics.ListCreateAPIView):
+    serializer_class = DocumentoAsientoSerializer
+    ordering_fields = ['id', 'id_asiento']
+
+    def initial(self, request, *args, **kwargs):
+        super().initial(request, *args, **kwargs)
+        self.documento = generics.get_object_or_404(
+            Documento.objects.all(),
+            id=kwargs['documento_id'],
+        )
+
+    def get_queryset(self):
+        return DocumentoAsiento.objects.filter(
+            id_clavefolio=self.documento.id_clavefolio,
+            id_conceptodocumento=self.documento.id_conceptodocumento,
+            id_movimientodocumento=self.documento.id_documentomovimiento,
+        ).order_by('id')
+
+    def perform_create(self, serializer):
+        serializer.save(
+            id_clavefolio=self.documento.id_clavefolio,
+            id_conceptodocumento=self.documento.id_conceptodocumento,
+            id_movimientodocumento=self.documento.id_documentomovimiento,
+        )
+
+
+class ClaveFolioListCreateAPIView(generics.ListCreateAPIView):
+    serializer_class = ClaveFolioSerializer
+    queryset = ClaveFolio.objects.order_by('id')
+    search_fields = ['nombredocumento', 'clavefolio']
+    ordering_fields = ['id', 'nombredocumento', 'clavefolio']
+
+
+class ClaveFolioDetailAPIView(generics.RetrieveUpdateAPIView):
+    serializer_class = ClaveFolioSerializer
+    queryset = ClaveFolio.objects.order_by('id')
+    http_method_names = ['get', 'patch', 'head', 'options']
+
+
+class FolioNumeracionListCreateAPIView(generics.ListCreateAPIView):
+    serializer_class = NumeracionFolioSerializer
+    ordering_fields = ['id', 'id_sucursal_sistema', 'numeroactual']
+
+    def initial(self, request, *args, **kwargs):
+        super().initial(request, *args, **kwargs)
+        self.clavefolio = generics.get_object_or_404(
+            ClaveFolio.objects.all(),
+            id=kwargs['folio_id'],
+        )
+
+    def get_queryset(self):
+        return NumeracionFolio.objects.filter(
+            id_clavefolio=self.clavefolio.id,
+        ).order_by('id')
+
+    def perform_create(self, serializer):
+        serializer.save(id_clavefolio=self.clavefolio.id)
+
+
+class DocumentoMovimientoListCreateAPIView(generics.ListCreateAPIView):
+    serializer_class = DocumentoMovimientoSerializer
+    queryset = DocumentoMovimiento.objects.order_by('id')
+    search_fields = ['movimientodocumento']
+    ordering_fields = ['id', 'movimientodocumento']
+
+
+class DocumentoConceptoListCreateAPIView(generics.ListCreateAPIView):
+    serializer_class = DocumentoConceptoSerializer
+    queryset = DocumentoConcepto.objects.order_by('id')
+    search_fields = ['conceptodocumento']
+    ordering_fields = ['id', 'conceptodocumento', 'id_clavefolio', 'id_movimiento']
+
+
+class AsientoContableListCreateAPIView(generics.ListCreateAPIView):
+    serializer_class = AsientoContableSerializer
+    queryset = AsientoContable.objects.order_by('id')
+    search_fields = ['nombreclasificacion', 'nombreasiento']
+    ordering_fields = ['id', 'nombreclasificacion', 'nombreasiento']
+
+
+class PersonaFiscalListCreateAPIView(generics.ListCreateAPIView):
+    serializer_class = PersonaFiscalSerializer
+    queryset = PersonaFiscal.objects.order_by('id')
+    search_fields = ['nombre', 'rfc', 'raz_n_social', 'estatus']
+    ordering_fields = ['id', 'nombre', 'rfc', 'estatus']
+
+
+class PersonaFiscalDetailAPIView(generics.RetrieveUpdateAPIView):
+    serializer_class = PersonaFiscalSerializer
+    queryset = PersonaFiscal.objects.order_by('id')
+    http_method_names = ['get', 'patch', 'head', 'options']
+
+
+class ClienteSistemaListCreateAPIView(generics.ListCreateAPIView):
+    serializer_class = ClienteSistemaSerializer
+    queryset = ClienteSistema.objects.order_by('id')
+    ordering_fields = ['id', 'id_personafiscal']
+
+
+class ClienteSistemaDetailAPIView(generics.RetrieveUpdateAPIView):
+    serializer_class = ClienteSistemaSerializer
+    queryset = ClienteSistema.objects.order_by('id')
+    http_method_names = ['get', 'patch', 'head', 'options']
+
+
+class PersonafiscalProveedorListCreateAPIView(generics.ListCreateAPIView):
+    serializer_class = PersonafiscalProveedorSerializer
+    queryset = PersonafiscalProveedor.objects.order_by('id')
+    ordering_fields = ['id', 'id_personafiscal', 'diascredito', 'tiemposurtido']
+
+
+class PersonafiscalProveedorDetailAPIView(generics.RetrieveUpdateAPIView):
+    serializer_class = PersonafiscalProveedorSerializer
+    queryset = PersonafiscalProveedor.objects.order_by('id')
+    http_method_names = ['get', 'patch', 'head', 'options']
+
+
+class CuentaContableListCreateAPIView(generics.ListCreateAPIView):
+    serializer_class = CuentaContableSerializer
+    queryset = CuentaContable.objects.order_by('id')
+    search_fields = ['nombre', 'sub_tipo']
+    ordering_fields = ['id', 'nombre', 'tipo', 'id_cliente', 'sub_tipo']
+
+
+class CuentaContableDetailAPIView(generics.RetrieveUpdateAPIView):
+    serializer_class = CuentaContableSerializer
+    queryset = CuentaContable.objects.order_by('id')
+    http_method_names = ['get', 'patch', 'head', 'options']
