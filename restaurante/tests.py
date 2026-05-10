@@ -11,8 +11,13 @@ from restaurante.models import (
     CuentaContable,
     DetalleUbicacion,
     Presentacion,
+    RegmaestroCompra,
+    RegmaestroContabilidad,
+    RegmaestroFoto,
+    RegmaestroInventario,
     RegmaestroPedimento,
     RegmaestroUbicacionfisica,
+    RegmaestroVenta,
     RegistroMaestro,
     SucursalSistema,
     TipoCuentaContable,
@@ -161,11 +166,17 @@ class LegacyFixtureMixin(object):
             'Catalogo_Clasificacion': 100,
             'Cuenta_Contable': 100,
             'Detalle_Ubicacion': 100,
+            'RegMaestro_Compra': 100,
+            'RegMaestro_Contabilidad': 100,
+            'RegMaestro_Foto': 100,
+            'RegMaestro_Inventario': 100,
             'RegMaestro_Pedimento': 100,
             'RegMaestro_UbicacionFisica': 100,
+            'RegMaestro_Venta': 100,
             'Registro_Maestro': 100,
             'Sucursal_Sistema': 100,
             'Tipo_CuentaContable': 100,
+            'Unidad_Medida': 100,
             'Ubicacion_Fisica': 100,
         }
         with connection.cursor() as cursor:
@@ -377,3 +388,228 @@ class APISkeletonTests(LegacyFixtureMixin, TestCase):
             self.assertEqual(response.status_code, 200)
             self.assertGreaterEqual(len(response.data), 1)
             self.assertIn(expected_field, response.data[0])
+
+
+class RegistroMaestroAPITests(LegacyFixtureMixin, TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.user = get_user_model().objects.create_user(
+            username='registro-api-user',
+            password='secret',
+        )
+
+    def authenticate(self):
+        self.client.force_authenticate(user=self.user)
+
+    def test_registro_maestro_endpoints_require_authentication(self):
+        response = self.client.get('/api/v1/registros-maestro/')
+
+        self.assertIn(response.status_code, (401, 403))
+
+    def test_registro_maestro_list_detail_create_and_patch(self):
+        self.authenticate()
+
+        list_response = self.client.get('/api/v1/registros-maestro/')
+        detail_response = self.client.get('/api/v1/registros-maestro/1/')
+        create_response = self.client.post(
+            '/api/v1/registros-maestro/',
+            {
+                'nombre': 'Aguacate',
+                'tipo': 'I',
+                'id_clasificacion': 1,
+                'marca': 'Campo',
+            },
+            format='json',
+        )
+
+        self.assertEqual(list_response.status_code, 200)
+        self.assertEqual(len(list_response.data), 2)
+        self.assertEqual(detail_response.status_code, 200)
+        self.assertEqual(detail_response.data['nombre'], 'Tomate')
+        self.assertEqual(create_response.status_code, 201)
+        self.assertEqual(create_response.data['estatus'], '1')
+        self.assertTrue(
+            RegistroMaestro.objects.filter(
+                id=create_response.data['id'],
+                nombre='Aguacate',
+            ).exists()
+        )
+
+        patch_response = self.client.patch(
+            '/api/v1/registros-maestro/{0}/'.format(create_response.data['id']),
+            {
+                'marca': 'Campo premium',
+                'estatus': '2',
+            },
+            format='json',
+        )
+
+        self.assertEqual(patch_response.status_code, 200)
+        self.assertEqual(patch_response.data['nombre'], 'Aguacate')
+        self.assertEqual(patch_response.data['marca'], 'Campo premium')
+        self.assertEqual(patch_response.data['estatus'], '2')
+
+    def test_registro_maestro_errors_map_to_api_responses(self):
+        self.authenticate()
+
+        missing_response = self.client.get('/api/v1/registros-maestro/999/')
+        invalid_payload_response = self.client.post(
+            '/api/v1/registros-maestro/',
+            {
+                'nombre': 'Sin clasificacion',
+                'tipo': 'I',
+            },
+            format='json',
+        )
+        invalid_classification_response = self.client.post(
+            '/api/v1/registros-maestro/',
+            {
+                'nombre': 'Clasificacion inexistente',
+                'tipo': 'I',
+                'id_clasificacion': 999,
+            },
+            format='json',
+        )
+
+        self.assertEqual(missing_response.status_code, 404)
+        self.assertEqual(invalid_payload_response.status_code, 400)
+        self.assertEqual(invalid_classification_response.status_code, 404)
+
+    def test_registro_maestro_disable_endpoint_uses_domain_rules(self):
+        self.authenticate()
+
+        disabled_response = self.client.post('/api/v1/registros-maestro/2/disable/')
+
+        self.assertEqual(disabled_response.status_code, 200)
+        self.assertEqual(disabled_response.data['estatus'], 'C')
+        self.assertEqual(RegistroMaestro.objects.get(id=2).estatus, 'C')
+
+        RegmaestroUbicacionfisica.objects.filter(
+            id_registromaestro=1,
+            id_ubicacionfisica=3,
+        ).update(existencias=5)
+        blocked_response = self.client.post('/api/v1/registros-maestro/1/disable/')
+
+        self.assertEqual(blocked_response.status_code, 400)
+        self.assertIn('existencias', blocked_response.data['detail'])
+
+    def test_registro_maestro_context_endpoints_upsert_and_read(self):
+        Presentacion.objects.create(
+            id=1,
+            nombrepresentacion='Caja',
+            tipo='Compra',
+        )
+        Presentacion.objects.create(
+            id=2,
+            nombrepresentacion='Pieza',
+            tipo='Inventario',
+        )
+        UnidadMedida.objects.create(id=1, unidadmedida='Kilogramo')
+        self.authenticate()
+
+        cases = [
+            (
+                '/api/v1/registros-maestro/2/compra/',
+                {
+                    'id_presentacioncompra': 1,
+                    'id_presentacioninventario': 2,
+                    'equivalenciaentrepresentacion': 12,
+                    'id_unidadmedida': 1,
+                },
+                'equivalenciaentrepresentacion',
+                12,
+                RegmaestroCompra,
+            ),
+            (
+                '/api/v1/registros-maestro/2/venta/',
+                {
+                    'id_presentacioninventario': 2,
+                    'id_presentacionconsumo': 1,
+                    'equivalenciaentrepresentaciones': 6,
+                    'id_unidadmedida': 1,
+                },
+                'equivalenciaentrepresentaciones',
+                6,
+                RegmaestroVenta,
+            ),
+            (
+                '/api/v1/registros-maestro/2/inventario/',
+                {
+                    'id_presentacioninventario': 2,
+                    'inventarioseguridad': 8,
+                    'caducidad': 30,
+                    'localidad': 'Almacen norte',
+                },
+                'localidad',
+                'Almacen norte',
+                RegmaestroInventario,
+            ),
+            (
+                '/api/v1/registros-maestro/2/contabilidad/',
+                {
+                    'id_perfilimpuesto': 3,
+                },
+                'id_perfilimpuesto',
+                3,
+                RegmaestroContabilidad,
+            ),
+            (
+                '/api/v1/registros-maestro/2/pedimento/',
+                {
+                    'tamanominimolote': 4,
+                    'existenciasrequeridas': 9,
+                    'plancompra': True,
+                },
+                'existenciasrequeridas',
+                9,
+                RegmaestroPedimento,
+            ),
+            (
+                '/api/v1/registros-maestro/2/foto/',
+                {
+                    'path_foto': '/media/registros/cebolla.png',
+                },
+                'path_foto',
+                '/media/registros/cebolla.png',
+                RegmaestroFoto,
+            ),
+            (
+                '/api/v1/registros-maestro/2/ubicaciones/1/',
+                {
+                    'existencias': 14,
+                },
+                'existencias',
+                14,
+                RegmaestroUbicacionfisica,
+            ),
+        ]
+
+        for endpoint, payload, field, expected_value, model in cases:
+            put_response = self.client.put(endpoint, payload, format='json')
+            get_response = self.client.get(endpoint)
+
+            self.assertEqual(put_response.status_code, 201)
+            self.assertEqual(put_response.data[field], expected_value)
+            self.assertEqual(get_response.status_code, 200)
+            self.assertEqual(get_response.data[field], expected_value)
+            self.assertTrue(model.objects.filter(id_registromaestro=2).exists())
+
+    def test_registro_maestro_context_put_updates_existing_resource(self):
+        self.authenticate()
+
+        response = self.client.put(
+            '/api/v1/registros-maestro/1/pedimento/',
+            {
+                'tamanominimolote': 25,
+                'existenciasrequeridas': 40,
+                'plancompra': False,
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data['tamanominimolote'], 25)
+        pedimento = RegmaestroPedimento.objects.get(id_registromaestro=1)
+        self.assertEqual(pedimento.tamanominimolote, 25)
+        self.assertEqual(pedimento.existenciasrequeridas, 40)
+        self.assertFalse(pedimento.plancompra)
