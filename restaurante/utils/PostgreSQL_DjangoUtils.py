@@ -1,6 +1,11 @@
 ''' Clase con metodos de funcionalidad adicional entre Django y PostgreSQL que no son soportadas por el modelo '''
 
+import logging
+
 from django.db import connection, DatabaseError
+
+logger = logging.getLogger(__name__)
+
 
 class pgSQL_Utils():
 
@@ -19,7 +24,7 @@ class pgSQL_Utils():
         except DatabaseError as e:
             #Lo recomendable es cachar la excepcion y llamar una funcion para propagarla mas arriba
             error_code = getattr(e, 'pgcode', getattr(e.__cause__, 'sqlstate', None))
-            print ("Existe un error al tratar de generar el id del objeto %err", error_code)
+            logger.exception("Existe un error al tratar de generar el id del objeto: %s", error_code)
             raise
         return int(row[0])
 
