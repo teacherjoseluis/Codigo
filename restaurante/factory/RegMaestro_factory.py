@@ -6,7 +6,7 @@ from restaurante.models import RegistroMaestro, AgrupadorBajonivel, RegmaestroUb
 from django.db.models import Sum
 from django.db import IntegrityError
 from django.core.exceptions import ObjectDoesNotExist
-from restaurante.repository.Ubicacion_repository import UbicacionFisica_Repo
+from restaurante.repository.Ubicacion_repository import UbicacionFisica_Repo, _log_integrity_error
 
 class RegMaestro(object):
 
@@ -48,26 +48,37 @@ class RegMaestro(object):
             self.id=regmaestro.id
         except IntegrityError as e:
             #Lo recomendable es cachar la excepcion y llamar una funcion para propagarla mas arriba
-            print ("Existe un error al tratar de guardar el objeto %err", e.pgcode)
+            _log_integrity_error("Existe un error al tratar de guardar el objeto", e)
+            raise
 
     def disable(self):
         #Revisar si el registro esta asociado a algun platillo o bebida
         #*** Implementar funcionalidad en la clase sucursal a fin de extraer todas las ubicaciones fisicas de la misma y usarlas abajo ***
-        if AgrupadorBajonivel.objects.get(id_registromaestro=self.id):
-            raise ValueError("Registro Maestro esta actualmente asociado a un platillo %abn " % (AgrupadorBajonivel.id))
-            #Revisar si hay existencias en el almacen (get_stock)
-            #*** Implementar funcionalidad en la clase sucursal a fin de extraer todas las ubicaciones fisicas de la misma y usarlas abajo ***
-        if RegmaestroUbicacionfisica.objects.get(id_registromaestro=self.id).aggregate(Sum('existencias')) > 0:
-            raise ValueError("Registro Maestro tiene actualmente existencias mayores a 0" % (AgrupadorBajonivel.id))
-            #Revisar si existen documentos con el registro maestro
-            registromaestro = RegistroMaestro.objects.get(id=self.id)
-            registromaestro.estatus = 'C' # Estatus cerrado, ya no podra ser usada en el sistema, solo para consultas
-            try:
-                with transaction.atomic():
-                    registromaestro.save()
-            except IntegrityError as e:
+        if AgrupadorBajonivel.objects.filter(id_registromaestro=self.id).exists():
+            raise ValueError("Registro Maestro esta actualmente asociado a un platillo {0}".format(self.id))
+
+        #Revisar si hay existencias en el almacen (get_stock)
+        #*** Implementar funcionalidad en la clase sucursal a fin de extraer todas las ubicaciones fisicas de la misma y usarlas abajo ***
+        total_existencias = (
+            RegmaestroUbicacionfisica.objects
+            .filter(id_registromaestro=self.id)
+            .aggregate(total=Sum('existencias'))
+            .get('total') or 0
+        )
+        if total_existencias > 0:
+            raise ValueError("Registro Maestro tiene actualmente existencias mayores a 0")
+
+        #Revisar si existen documentos con el registro maestro
+        registromaestro = RegistroMaestro.objects.get(id=self.id)
+        registromaestro.estatus = 'C' # Estatus cerrado, ya no podra ser usada en el sistema, solo para consultas
+        try:
+            with transaction.atomic():
+                registromaestro.save()
+            self.estatus = registromaestro.estatus
+        except IntegrityError as e:
             #Lo recomendable es cachar la excepcion y llamar una funcion para propagarla mas arriba
-                print ("Existe un error al tratar de guardar el objeto %err", e.pgcode)
+            _log_integrity_error("Existe un error al tratar de guardar el objeto", e)
+            raise
 
     def get(self, id_registromaestro):
         try:
@@ -110,11 +121,14 @@ class Contexto_UbicacionFisica(RegMaestro):
         self.existencias = None
 
     def save(self):
+        if not RegistroMaestro.objects.filter(id=self.idregistromaestro).exists():
+            raise ObjectDoesNotExist('El registro maestro no existe')
+
         if self.id is None:
             contexto = RegmaestroUbicacionfisica ()
             contexto.id_registromaestro = self.idregistromaestro
             contexto.id_ubicacionfisica = self.idubicacionfisica
-            if RegmaestroUbicacionfisica.objects.filter(id_registromaestro=self.idregistromaestro,id_ubicacionfisica=self.idubicacionfisica).count():
+            if RegmaestroUbicacionfisica.objects.filter(id_registromaestro=self.idregistromaestro,id_ubicacionfisica=self.idubicacionfisica).exists():
                 raise ValueError('Los registros ya existen')
         else:
             contexto = RegmaestroUbicacionfisica.objects.get(id=self.id)
@@ -125,8 +139,8 @@ class Contexto_UbicacionFisica(RegMaestro):
 
         contexto.existencias = self.existencias
 
-        if UbicacionFisica_Repo.get_status(self.idubicacionfisica) != 1:
-            raise ObjectDoesNotExist('La ubicacion fisica no existe')
+        if UbicacionFisica_Repo.get_status(self.idubicacionfisica) != '1':
+            raise ObjectDoesNotExist('La ubicacion fisica no existe o no esta activa')
 
         try:
             with transaction.atomic():
@@ -134,11 +148,13 @@ class Contexto_UbicacionFisica(RegMaestro):
             self.id=contexto.id
         except IntegrityError as e:
         #Lo recomendable es cachar la excepcion y llamar una funcion para propagarla mas arriba
-            print ("Existe un error al tratar de guardar el objeto %err", e.pgcode)
+            _log_integrity_error("Existe un error al tratar de guardar el objeto", e)
+            raise
 
     def get(self, id_ubicacionfisica):
         contexto = RegmaestroUbicacionfisica.objects.get(id_registromaestro=self.idregistromaestro, id_ubicacionfisica=id_ubicacionfisica)
         self.id = contexto.id
+        self.idregistromaestro = contexto.id_registromaestro
         self.idubicacionfisica = contexto.id_ubicacionfisica
         self.existencias = contexto.existencias
 
@@ -153,13 +169,16 @@ class Contexto_Pedimento(RegMaestro):
         self.plancompra = None
 
     def save(self):
+        if not RegistroMaestro.objects.filter(id=self.idregistromaestro).exists():
+            raise ObjectDoesNotExist('El registro maestro no existe')
+
         if self.id is None:
             contexto = RegmaestroPedimento ()
             contexto.id_registromaestro = self.idregistromaestro
-            if RegmaestroPedimento.objects.filter(id_registromaestro=self.idregistromaestro).count():
+            if RegmaestroPedimento.objects.filter(id_registromaestro=self.idregistromaestro).exists():
                 raise ValueError('El registro maestro ya existe')
         else:
-            contexto = RegmaestroPedimento.objects.get(id_registromaestro=self.id)
+            contexto = RegmaestroPedimento.objects.get(id=self.id)
             if contexto.id_registromaestro != self.idregistromaestro:
                raise ValueError('No es posible modificar el identificador del registro maestro')
 
@@ -173,11 +192,13 @@ class Contexto_Pedimento(RegMaestro):
             self.id=contexto.id
         except IntegrityError as e:
             #Lo recomendable es cachar la excepcion y llamar una funcion para propagarla mas arriba
-            print ("Existe un error al tratar de guardar el objeto %err", e.pgcode)
+            _log_integrity_error("Existe un error al tratar de guardar el objeto", e)
+            raise
 
     def get(self, id_registromaestro):
         contexto = RegmaestroPedimento.objects.get(id_registromaestro=id_registromaestro)
         self.id = contexto.id
+        self.idregistromaestro = contexto.id_registromaestro
         self.tamanominimolote = contexto.tamanominimolote
         self.existenciasrequeridas = contexto.existenciasrequeridas
         self.plancompra = contexto.plancompra
@@ -191,11 +212,16 @@ class Contexto_Foto(RegMaestro):
         self.path_foto = None
 
     def save(self):
+        if not RegistroMaestro.objects.filter(id=self.idregistromaestro).exists():
+            raise ObjectDoesNotExist('El registro maestro no existe')
+
         if self.id is None:
             contexto = RegmaestroFoto ()
             contexto.id_registromaestro = self.idregistromaestro
         else:
-            contexto = RegmaestroFoto.objects.get(id_registromaestro=self.id)
+            contexto = RegmaestroFoto.objects.get(id=self.id)
+            if contexto.id_registromaestro != self.idregistromaestro:
+                raise ValueError('No es posible modificar el identificador del registro maestro')
 
         contexto.path_foto = self.path_foto
 
@@ -205,11 +231,13 @@ class Contexto_Foto(RegMaestro):
             self.id=contexto.id
         except IntegrityError as e:
             #Lo recomendable es cachar la excepcion y llamar una funcion para propagarla mas arriba
-            print ("Existe un error al tratar de guardar el objeto %err", e.pgcode)
+            _log_integrity_error("Existe un error al tratar de guardar el objeto", e)
+            raise
 
     def get(self, id_registromaestro):
         contexto = RegmaestroFoto.objects.get(id_registromaestro=id_registromaestro)
         self.id = contexto.id
+        self.idregistromaestro = contexto.id_registromaestro
         self.path_foto = contexto.path_foto
 
 ' ***************************** Contabilidad *********************************'
@@ -221,11 +249,16 @@ class Contexto_Contabilidad(RegMaestro):
         self.idperfilimpuesto = None
 
     def save(self):
+        if not RegistroMaestro.objects.filter(id=self.idregistromaestro).exists():
+            raise ObjectDoesNotExist('El registro maestro no existe')
+
         if self.id is None:
             contexto = RegmaestroContabilidad ()
             contexto.id_registromaestro = self.idregistromaestro
         else:
-            contexto = RegmaestroContabilidad.objects.get(id_registromaestro=self.id)
+            contexto = RegmaestroContabilidad.objects.get(id=self.id)
+            if contexto.id_registromaestro != self.idregistromaestro:
+                raise ValueError('No es posible modificar el identificador del registro maestro')
 
         contexto.id_perfilimpuesto = self.idperfilimpuesto
 
@@ -235,11 +268,13 @@ class Contexto_Contabilidad(RegMaestro):
             self.id=contexto.id
         except IntegrityError as e:
             #Lo recomendable es cachar la excepcion y llamar una funcion para propagarla mas arriba
-            print ("Existe un error al tratar de guardar el objeto %err", e.pgcode)
+            _log_integrity_error("Existe un error al tratar de guardar el objeto", e)
+            raise
 
     def get(self, id_registromaestro):
         contexto = RegmaestroContabilidad.objects.get(id_registromaestro=id_registromaestro)
         self.id = contexto.id
+        self.idregistromaestro = contexto.id_registromaestro
         self.idperfilimpuesto = contexto.id_perfilimpuesto
 
 ' ***************************** Compra *********************************'
@@ -254,11 +289,16 @@ class Contexto_Compra(RegMaestro):
         self.idunidadmedida = None
 
     def save(self):
+        if not RegistroMaestro.objects.filter(id=self.idregistromaestro).exists():
+            raise ObjectDoesNotExist('El registro maestro no existe')
+
         if self.id is None:
             contexto = RegmaestroCompra ()
             contexto.id_registromaestro = self.idregistromaestro
         else:
-            contexto = RegmaestroCompra.objects.get(id_registromaestro=self.id)
+            contexto = RegmaestroCompra.objects.get(id=self.id)
+            if contexto.id_registromaestro != self.idregistromaestro:
+                raise ValueError('No es posible modificar el identificador del registro maestro')
 
         contexto.id_presentacioncompra=self.idpresentacioncompra
         contexto.id_presentacioninventario=self.idpresentacioninventario
@@ -271,11 +311,13 @@ class Contexto_Compra(RegMaestro):
             self.id=contexto.id
         except IntegrityError as e:
             #Lo recomendable es cachar la excepcion y llamar una funcion para propagarla mas arriba
-            print ("Existe un error al tratar de guardar el objeto %err", e.pgcode)
+            _log_integrity_error("Existe un error al tratar de guardar el objeto", e)
+            raise
 
     def get(self, id_registromaestro):
         contexto = RegmaestroCompra.objects.get(id_registromaestro=id_registromaestro)
         self.id = contexto.id
+        self.idregistromaestro = contexto.id_registromaestro
         self.idpresentacioncompra = contexto.id_presentacioncompra
         self.idpresentacioninventario = contexto.id_presentacioninventario
         self.equivalenciaentrepresentacion = contexto.equivalenciaentrepresentacion
@@ -288,16 +330,21 @@ class Contexto_Venta(RegMaestro):
         self.id = None
         self.idregistromaestro = idregistromaestro
         self.idpresentacioninventario = None
-        self.idpresentacionventa = None
+        self.idpresentacionconsumo = None
         self.equivalenciaentrepresentaciones = None
         self.idunidadmedida = None
 
     def save(self):
+        if not RegistroMaestro.objects.filter(id=self.idregistromaestro).exists():
+            raise ObjectDoesNotExist('El registro maestro no existe')
+
         if self.id is None:
             contexto = RegmaestroVenta ()
             contexto.id_registromaestro = self.idregistromaestro
         else:
-            contexto = RegmaestroVenta.objects.get(id_registromaestro=self.id)
+            contexto = RegmaestroVenta.objects.get(id=self.id)
+            if contexto.id_registromaestro != self.idregistromaestro:
+                raise ValueError('No es posible modificar el identificador del registro maestro')
 
         contexto.id_presentacioninventario=self.idpresentacioninventario
         contexto.id_presentacionconsumo=self.idpresentacionconsumo
@@ -310,11 +357,13 @@ class Contexto_Venta(RegMaestro):
             self.id=contexto.id
         except IntegrityError as e:
                 #Lo recomendable es cachar la excepcion y llamar una funcion para propagarla mas arriba
-            print ("Existe un error al tratar de guardar el objeto %err", e.pgcode)
+            _log_integrity_error("Existe un error al tratar de guardar el objeto", e)
+            raise
 
     def get(self, id_registromaestro):
         contexto = RegmaestroVenta.objects.get(id_registromaestro=id_registromaestro)
         self.id = contexto.id
+        self.idregistromaestro = contexto.id_registromaestro
         self.idpresentacioninventario = contexto.id_presentacioninventario
         self.idpresentacionconsumo = contexto.id_presentacionconsumo
         self.equivalenciaentrepresentaciones = contexto.equivalenciaentrepresentaciones
@@ -332,13 +381,18 @@ class Contexto_Inventario(RegMaestro):
         self.localidad = None
 
     def save(self):
+        if not RegistroMaestro.objects.filter(id=self.idregistromaestro).exists():
+            raise ObjectDoesNotExist('El registro maestro no existe')
+
         if self.id is None:
             contexto = RegmaestroInventario ()
             contexto.id_registromaestro = self.idregistromaestro
         else:
-            contexto = RegmaestroInventario.objects.get(id_registromaestro=self.id)
+            contexto = RegmaestroInventario.objects.get(id=self.id)
+            if contexto.id_registromaestro != self.idregistromaestro:
+                raise ValueError('No es posible modificar el identificador del registro maestro')
 
-        contexto.idpresentacioninventario=self.idpresentacioninventario
+        contexto.id_presentacioninventario=self.idpresentacioninventario
         contexto.inventarioseguridad=self.inventarioseguridad
         contexto.caducidad=self.caducidad
         contexto.localidad=self.localidad
@@ -349,12 +403,14 @@ class Contexto_Inventario(RegMaestro):
             self.id=contexto.id
         except IntegrityError as e:
             #Lo recomendable es cachar la excepcion y llamar una funcion para propagarla mas arriba
-            print ("Existe un error al tratar de guardar el objeto %err", e.pgcode)
+            _log_integrity_error("Existe un error al tratar de guardar el objeto", e)
+            raise
 
     def get(self, id_registromaestro):
-        contexto = RegmaestroCompra.objects.get(id_registromaestro=id_registromaestro)
+        contexto = RegmaestroInventario.objects.get(id_registromaestro=id_registromaestro)
         self.id = contexto.id
-        self.idpresentacioninventario = contexto.idpresentacioninventario
+        self.idregistromaestro = contexto.id_registromaestro
+        self.idpresentacioninventario = contexto.id_presentacioninventario
         self.inventarioseguridad = contexto.inventarioseguridad
         self.caducidad = contexto.caducidad
         self.localidad = contexto.localidad

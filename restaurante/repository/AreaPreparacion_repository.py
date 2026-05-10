@@ -4,6 +4,7 @@ from django.core.exceptions import ObjectDoesNotExist
 
 from restaurante.models import UbicacionFisica, DetalleUbicacion, RegmaestroUbicacionfisica, TipoCuentaContable
 from restaurante.repository.Ubicacion_repository import UbicacionFisica_Repo #Importando clase abstracta de Ubicacion Fisica
+from restaurante.repository.Ubicacion_repository import _log_integrity_error
 
 #from restaurante.data_object.CuentaContable_dataobject import CuentaContable_Repo # clase de repositorio
 
@@ -24,36 +25,35 @@ class AreaPreparacion(UbicacionFisica_Repo):
 
     def save(self): 
         super(AreaPreparacion, self).save() #Se salva la informacion de la Ubicacion Fisica de la clase abstracta
+        ubicacionfisica_id = self.id
         detallearea = DetalleUbicacion()
         try:
-            detallearea = DetalleUbicacion.objects.get(id_ubicacionfisica=self.id)
+            detallearea = DetalleUbicacion.objects.get(id_ubicacionfisica=ubicacionfisica_id)
         except DetalleUbicacion.DoesNotExist:
             detallearea.id = None
 
         if not detallearea.id:
-            detallearea.id_ubicacionfisica = self.id
-            detallearea.terminalsalida = self.terminalsalida
-            detallearea.telefono = self.telefono
-            detallearea.horariorecepcion = self.horariorecepcion
-        else:
-            detallearea.terminalsalida = self.terminalsalida
-            detallearea.telefono = self.telefono
-            detallearea.horariorecepcion = self.horariorecepcion
+            detallearea.id_ubicacionfisica = ubicacionfisica_id
+
+        detallearea.terminalsalida = self.terminalsalida
+        detallearea.telefono = self.telefono
+        detallearea.horariorecepcion = self.horariorecepcion
 
         try:
             with transaction.atomic():
                detallearea.save()
-            self.id = detallearea.id
+            self.id = ubicacionfisica_id
         except IntegrityError as e:
             #Lo recomendable es cachar la excepcion y llamar una funcion para propagarla mas arriba
-            print ("Existe un error al tratar de guardar el objeto %err", e.pgcode)
+            _log_integrity_error("Existe un error al tratar de guardar el objeto", e)
+            raise
 
     def disable(self):
         # *Validaciones generales para la ubicacion fisica
         super(AreaPreparacion, self).disable()
         # *Validacion de que la ubicacion fisica no sea default
         if self.default is True:
-            raise ValueError("Ubicacion fisica %uf es default" % self.id)
+            raise ValueError("Ubicacion fisica {0} es default".format(self.id))
         # *Validacion de que la ubicacion fisica no sea asociada con Registro Maestro con saldo diferente de cero
         #Registros con existencia mayor a cero
 
@@ -61,7 +61,7 @@ class AreaPreparacion(UbicacionFisica_Repo):
         #    raise ValueError("La cuenta contable %uf tiene un saldo mayor a 0" % self.cuentacontable)'
 
         if RegmaestroUbicacionfisica.objects.filter(id_ubicacionfisica=self.id, existencias__gt=0):
-            raise ValueError("Ubicacion fisica %uf aun tiene existencias" % self.id)
+            raise ValueError("Ubicacion fisica {0} aun tiene existencias".format(self.id))
         else:
             area = UbicacionFisica.objects.get(id=self.id)
             area.estatus = 'C' # Estatus cerrado, ya no podra ser usada en el sistema, solo para consultas
@@ -70,7 +70,8 @@ class AreaPreparacion(UbicacionFisica_Repo):
                     area.save()
             except IntegrityError as e:
                 #Lo recomendable es cachar la excepcion y llamar una funcion para propagarla mas arriba
-                print ("Existe un error al tratar de guardar el objeto %err", e.pgcode)
+                _log_integrity_error("Existe un error al tratar de guardar el objeto", e)
+                raise
 
     def get(self, id_ubicacionfisica):
         super(AreaPreparacion, self).get(id_ubicacionfisica)

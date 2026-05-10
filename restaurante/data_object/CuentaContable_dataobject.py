@@ -1,3 +1,4 @@
+import logging
 import sys
 from django.db import IntegrityError
 from django.db import transaction
@@ -5,6 +6,8 @@ from django.db import DatabaseError
 from django.db.models import Q
 from restaurante.models import CuentaContable, SucursalSistema
 #from django.db.models import Max
+logger = logging.getLogger(__name__)
+
 
 #Clase Abstracta
 class CuentaContable_Repo(object):
@@ -49,4 +52,5 @@ class CuentaContable_Repo(object):
             self.id = cuentacontable.id
         except IntegrityError:
             #Lo recomendable es cachar la excepcion y llamar una funcion para propagarla mas arriba
-            print ("Existe un error al tratar de guardar el objeto")
+            logger.exception("Existe un error al tratar de guardar el objeto")
+            raise

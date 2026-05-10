@@ -1,189 +1,320 @@
-# http://cgoldberg.github.io/python-unittest-tutorial/
-import datetime
-
-
-from django.test import TestCase
 from django.core.exceptions import ObjectDoesNotExist
-from restaurante.models import *
+from django.db import connection
+from django.test import TestCase
+
+from restaurante.factory.RegMaestro_factory import RegMaestro
+from restaurante.models import (
+    AuthUser_Sucursal,
+    CatalogoClasificacion,
+    CuentaContable,
+    DetalleUbicacion,
+    RegmaestroPedimento,
+    RegmaestroUbicacionfisica,
+    RegistroMaestro,
+    SucursalSistema,
+    TipoCuentaContable,
+    UbicacionFisica,
+)
 from restaurante.repository.AreaPreparacion_repository import AreaPreparacion
 from restaurante.repository.Ubicacion_repository import UbicacionFisica_Repo
 
-from restaurante.factory.RegMaestro_factory import RegMaestro
 
-    # Ubicacion fisica
-class UFRepo_Validacion(TestCase):
-    #save
-    """Existe la ubicacion fisica en Detalle Documento, Estatus = 1"""
+class LegacyFixtureMixin(object):
+    @classmethod
+    def setUpTestData(cls):
+        TipoCuentaContable.objects.create(
+            id=1,
+            tipo=1,
+            instancia='AreaPreparacion',
+        )
+        TipoCuentaContable.objects.create(
+            id=2,
+            tipo=2,
+            instancia='Mesa',
+        )
+        SucursalSistema.objects.create(
+            id=1,
+            nombre='Sucursal Centro',
+            direccion='Centro',
+            personacontacto='Contacto',
+            telefono1='555-0001',
+            telefono2='',
+            telefono3='',
+            correoelectronico='centro@example.com',
+            id_cliente=1,
+            identificadorcorto='CEN',
+        )
+        SucursalSistema.objects.create(
+            id=2,
+            nombre='Sucursal Norte',
+            direccion='Norte',
+            personacontacto='Contacto',
+            telefono1='555-0002',
+            telefono2='',
+            telefono3='',
+            correoelectronico='norte@example.com',
+            id_cliente=1,
+            identificadorcorto='NOR',
+        )
+        CuentaContable.objects.create(
+            id=1,
+            nombre='Cuenta padre',
+            tipo=1,
+            id_cliente=1,
+            sub_tipo='1',
+            id_subcuentacontable=None,
+        )
+        CatalogoClasificacion.objects.create(
+            id=1,
+            nombreclasificacion='Insumos',
+            estatus='1',
+        )
+        RegistroMaestro.objects.create(
+            id=1,
+            nombre='Tomate',
+            tipo='I',
+            id_clasificacion=1,
+            marca='Generica',
+            estatus='1',
+        )
+        RegistroMaestro.objects.create(
+            id=2,
+            nombre='Cebolla',
+            tipo='I',
+            id_clasificacion=1,
+            marca='Generica',
+            estatus='1',
+        )
+        UbicacionFisica.objects.create(
+            id=1,
+            id_sucursalsistema=1,
+            nombre='Area activa',
+            descripcion='Area de preparacion',
+            tipo='1',
+            default=False,
+            id_subcuentacontable=None,
+            estatus='1',
+            cuenta_contable=1,
+        )
+        UbicacionFisica.objects.create(
+            id=2,
+            id_sucursalsistema=1,
+            nombre='Area secundaria',
+            descripcion='Area de preparacion secundaria',
+            tipo='1',
+            default=False,
+            id_subcuentacontable=None,
+            estatus='1',
+            cuenta_contable=1,
+        )
+        UbicacionFisica.objects.create(
+            id=3,
+            id_sucursalsistema=1,
+            nombre='Mesa uno',
+            descripcion='No es area de preparacion',
+            tipo='2',
+            default=False,
+            id_subcuentacontable=None,
+            estatus='1',
+            cuenta_contable=1,
+        )
+        DetalleUbicacion.objects.create(
+            id=1,
+            id_ubicacionfisica=1,
+            direccion='Centro',
+            telefono='555-0001',
+            horariorecepcion='08:00-18:00',
+            saldoactual=0,
+            impresora='',
+            terminalsalida='TERM-1',
+            minimocomensales='',
+            maximocomensales='',
+            tipo='',
+        )
+        RegmaestroUbicacionfisica.objects.create(
+            id=1,
+            id_registromaestro=1,
+            id_ubicacionfisica=3,
+            existencias=0,
+        )
+        RegmaestroPedimento.objects.create(
+            id=1,
+            id_registromaestro=1,
+            tamanominimolote=10,
+            existenciasrequeridas=20,
+            plancompra=True,
+        )
+        AuthUser_Sucursal.objects.create(id=1, user=1, sucursal=1)
+        cls._sync_sequences()
 
+    @classmethod
+    def _sync_sequences(cls):
+        if connection.vendor != 'postgresql':
+            return
+
+        sequence_values = {
+            'AuthUser_Sucursal': 100,
+            'Catalogo_Clasificacion': 100,
+            'Cuenta_Contable': 100,
+            'Detalle_Ubicacion': 100,
+            'RegMaestro_Pedimento': 100,
+            'RegMaestro_UbicacionFisica': 100,
+            'Registro_Maestro': 100,
+            'Sucursal_Sistema': 100,
+            'Tipo_CuentaContable': 100,
+            'Ubicacion_Fisica': 100,
+        }
+        with connection.cursor() as cursor:
+            for table_name, value in sequence_values.items():
+                sequence_name = connection.ops.quote_name(
+                    '{0}_ID_seq'.format(table_name)
+                )
+                cursor.execute(
+                    'SELECT setval(%s::regclass, %s, true)',
+                    [sequence_name, value],
+                )
+
+
+class UFRepo_Validacion(LegacyFixtureMixin, TestCase):
     def test_uf_sucursalvalida(self):
-        # A fin de mantener la consistencia en BD, se debera asegurar que la sucursal exista
-        a = AreaPreparacion()
-        a.sucursal = 666
-        self.assertRaises(ObjectDoesNotExist, a.save)
+        area = AreaPreparacion()
+        area.sucursal = 666
+        self.assertRaises(ObjectDoesNotExist, area.save)
 
     def test_uf_sucursalnoexiste(self):
-        # A fin de mantener la consistencia en BD, se debera asegurar que la sucursal exista
-        a = AreaPreparacion()
-        a.sucursal = None
-        self.assertRaises(ValueError, a.save)
+        area = AreaPreparacion()
+        area.sucursal = None
+        self.assertRaises(ValueError, area.save)
 
-    #disable
-    """Existe la ubicacion fisica en Detalle Documento, Estatus = 1"""
-    #Como precondicion se necesita trabajar con una ubicacion fisica que exista en un Detalle Documento con estatus Activo
-    #Hasta este momento 06/23 no se ha desarrollado la funcionalidad para crear el detalle del documento
-    def test_uf_documento(self):
-        pass
-
-    """Existe Libro Cuenta Contable, Saldo > 0"""
-    # Me gustaria probar esta funcionalidad con un ingreso de mercancia en el almacen o area de preparacion a fin de incrementar el saldo desde el caso de prueba
-    def test_uf_cuentacontable(self):
-        pass
-
-    #user
-    """Usuario invalido"""
     def test_uf_usuarioinvalido(self):
         area = AreaPreparacion()
-        self.assertRaises(ObjectDoesNotExist, area.user, 999, 'add') #Recordar que la validacion se hace sobre los usuarios de la sucursal
+        self.assertRaises(ObjectDoesNotExist, area.user, 999, 'add')
 
-    """Usuario no asociado a la sucursal de la UF"""
     def test_uf_usuarionoasociado(self):
-         area = AreaPreparacion()
-         area.get(1) #Ubicacion fisica cuya sucursal sea diferente a la del usuario 2
-         self.assertRaises(ObjectDoesNotExist, area.user, 2,'add') # Asociando un usuario existente pero no de la misma sucursal que la UF
+        area = AreaPreparacion()
+        area.get(1)
+        self.assertRaises(ObjectDoesNotExist, area.user, 2, 'add')
 
-    """Usuario Comando invalido"""
     def test_uf_comandoinvalido(self):
         area = AreaPreparacion()
-        self.assertRaises(ValueError, area.user, 1,'xxx')
-         
-    #is_user
-    #Usuario invalido
-    #Ya no se hara validacion aqui, ya que se esta consideranto en uf_usuarioinvalido()
+        self.assertRaises(ValueError, area.user, 1, 'xxx')
 
-    #get
-    """Ubicacion fisica no existente"""
     def test_uf_ufinvalida(self):
-         area = AreaPreparacion()
-         self.assertRaises(ObjectDoesNotExist, area.get, 999) #Corresponde a una ubicacion fisica invalida
+        area = AreaPreparacion()
+        self.assertRaises(ObjectDoesNotExist, area.get, 999)
 
-    """Tipo no corresponde a la clase"""
     def test_uf_tipoinvalido(self):
-         area = AreaPreparacion()
-         self.assertRaises(ValueError, area.get, 3) #Suponiendo que la UF 2 no corresponde al mismo tipo del AreaPreparacion
+        area = AreaPreparacion()
+        self.assertRaises(ValueError, area.get, 3)
 
-    #get_stock
-    """Registro maestro no existente"""
     def test_uf_regmaestroinvalido(self):
-         area = AreaPreparacion()
-         self.assertRaises(ObjectDoesNotExist, area.get_stock, 999) #Registro maestro invalido
+        area = AreaPreparacion()
+        self.assertRaises(ObjectDoesNotExist, area.get_stock, 999)
 
-    """Registro maestro existente pero no asociado a la UF"""
     def test_uf_regmaestronoasociado(self):
-         area = AreaPreparacion()
-         area.get(1) #Area que no tiene el Registro Maestro 2 asociada
-         self.assertRaises(ObjectDoesNotExist, area.get_stock, 2) # Solicitando stock de un registro maestro existente pero actualmente no asocidado a la UF
+        area = AreaPreparacion()
+        area.get(1)
+        self.assertRaises(ObjectDoesNotExist, area.get_stock, 2)
 
-    #get_balance
-    #No considero que se ameriten pruebas unitarias para este metodo
-
-    # Metodos nuevos relacionados con estatus, no es necesario instanciar para obtener los valores. Seran de uso primordialmente fuera del ambito de la UF.
-    #get_status
-    """Simplemente obtendra el estatus de la instancia. Esto servira para propositos de validacion"""
     def test_uf_getstatus(self):
-         #La definire de una vez porque me interesa manejarla ya. Va a fallar actualmente por no existir el metodo
-         self.assertIsNotNone(UbicacionFisica_Repo.get_status, 1) #Los estatus se procesaran de forma numerica: 1)Activo, 2)Bloqueado, 3)Inactivo
+        self.assertEqual(UbicacionFisica_Repo.get_status(1), '1')
 
     def test_uf_getstatusinvalido(self):
-         #La definire de una vez porque me interesa manejarla ya. Va a fallar actualmente por no existir el metodo
-         self.assertRaises(ObjectDoesNotExist,UbicacionFisica_Repo.get_status, 999) #Los estatus se procesaran de forma numerica: 1)Activo, 2)Bloqueado, 3)Inactivo
+        self.assertRaises(ObjectDoesNotExist, UbicacionFisica_Repo.get_status, 999)
 
-
-    #""" Estatus con tipo invalido"""
-    #def test_uf_getstatustipoinvalido(self):
-    #     self.assertRaises(UbicacionFisica.ValidationError, AreaPreparacion.get_status(2)) #Suponiendo que la UF 2 no corresponde al mismo tipo del AreaPreparacion
-
-    #set_status
-    #Implementaria logica mas estricta de lo que se deberia cumplir a fin de que se diera un cambio de estatus para la clase UF
-    """ Set status """
     def test_uf_setstatusinvalido(self):
-         #Ejecucion exitosa a estatus Bloqueado para el area 1
-         self.assertRaises(ObjectDoesNotExist,UbicacionFisica_Repo.set_status, 999, 2) #Los estatus se procesaran de forma numerica: 1)Activo, 2)Bloqueado, 3)Inactivo
+        self.assertRaises(ObjectDoesNotExist, UbicacionFisica_Repo.set_status, 999, 2)
 
-         #TODO: Es necesario que esta funcionalidad sea probada con diferentes perfiles de usuario porque no todos lo podran realizar. El metodo set_status debera verificar el usuario actualmente registrado en el sistema, aunque de momento esta validacion puede ser pasada por alto.
+    def test_uf_setstatus(self):
+        self.assertEqual(UbicacionFisica_Repo.set_status(1, 2), '2')
+        self.assertEqual(UbicacionFisica_Repo.get_status(1), '2')
 
-    #""" Set status con tipo invalido """
-    #def test_uf_setstatustipoinvalido(self):
-    #     self.assertRaises(UbicacionFisica.ValidationError, AreaPreparacion.set_status(2, 2)) #Suponiendo que la UF 2 no corresponde al mismo tipo del AreaPreparacion
+    def test_area_save_preserves_ubicacion_identity(self):
+        area = AreaPreparacion()
+        area.nombre = 'Nueva area'
+        area.descripcion = 'Area creada por prueba'
+        area.sucursal = 1
+        area.terminalsalida = 'TERM-2'
+        area.telefono = '555-2222'
+        area.horariorecepcion = '09:00-17:00'
+
+        area.save()
+
+        self.assertTrue(UbicacionFisica.objects.filter(id=area.id).exists())
+        self.assertTrue(
+            DetalleUbicacion.objects.filter(id_ubicacionfisica=area.id).exists()
+        )
 
 
-#Registro Maestro
-class RegMas_Validacion(TestCase):
-
-    #get_registromaestro no existe
+class RegMas_Validacion(LegacyFixtureMixin, TestCase):
     def test_regmas_invalido(self):
-        a = RegMaestro()
-        self.assertRaises(ObjectDoesNotExist, a.get, 999)
+        regmaestro = RegMaestro()
+        self.assertRaises(ObjectDoesNotExist, regmaestro.get, 999)
 
-    #Clasificacion para el registro maestro no existe
     def test_regmas_clasific(self):
-        a = RegMaestro()
-        a.id_clasificacion = 999
-        a.marca = 'marca'
-        a.nombre = 'nombre'
-        self.assertRaises(ObjectDoesNotExist, a.save)
+        regmaestro = RegMaestro()
+        regmaestro.id_clasificacion = 999
+        regmaestro.marca = 'marca'
+        regmaestro.nombre = 'nombre'
+        self.assertRaises(ObjectDoesNotExist, regmaestro.save)
 
-    #la ubicacion fisica asignada al registro maestro no existe (save, get)
     def test_regmas_uf_invalida_save(self):
-        a = RegMaestro()
-        b = a.contexto(a, "UbicacionFisica")
-        b.idubicacionfisica = 999
-        self.assertRaises(ObjectDoesNotExist, b.save)
+        regmaestro = RegMaestro()
+        contexto = regmaestro.contexto(regmaestro, 'UbicacionFisica')
+        contexto.idubicacionfisica = 999
+        self.assertRaises(ObjectDoesNotExist, contexto.save)
 
-    #la ubicacion fisica asignada al registro maestro no existe (save, get)
     def test_regmas_uf_invalida_get(self):
-        a = RegMaestro()
-        b = a.contexto(a, "UbicacionFisica")
-        self.assertRaises(ObjectDoesNotExist, b.get, 999)
+        regmaestro = RegMaestro()
+        contexto = regmaestro.contexto(regmaestro, 'UbicacionFisica')
+        self.assertRaises(ObjectDoesNotExist, contexto.get, 999)
 
-    #se intenta actualizar la ubicacion fisica de un registro existente
     def test_regmas_uf_change_uf(self):
-        a = RegMaestro()
-        a.get(1)
-        b = a.contexto(a, "UbicacionFisica")
-        b.get(3)
-        b.idubicacionfisica = 2
-        self.assertRaises(ValueError, b.save)
+        regmaestro = RegMaestro()
+        regmaestro.get(1)
+        contexto = regmaestro.contexto(regmaestro, 'UbicacionFisica')
+        contexto.get(3)
+        contexto.idubicacionfisica = 2
+        self.assertRaises(ValueError, contexto.save)
 
-    #se intenta actualizar el registro maestro de un registro existente
     def test_regmas_uf_change_rm(self):
-        a = RegMaestro()
-        a.get(1)
-        b = a.contexto(a, "UbicacionFisica")
-        b.get(3)
-        b.idregistromaestro = 2
-        self.assertRaises(ValueError, b.save)
+        regmaestro = RegMaestro()
+        regmaestro.get(1)
+        contexto = regmaestro.contexto(regmaestro, 'UbicacionFisica')
+        contexto.get(3)
+        contexto.idregistromaestro = 2
+        self.assertRaises(ValueError, contexto.save)
 
-    #multiples ubicaciones fisicas no se pueden salvar
-    #Previamente ya existe una ubicacion fisica 1
     def test_regmas_uf_many_uf(self):
-        a = RegMaestro()
-        a.get(1)
-        b = a.contexto(a, "UbicacionFisica")
-        b.idubicacionfisica = 3
-        self.assertRaises(ValueError, b.save)
+        regmaestro = RegMaestro()
+        regmaestro.get(1)
+        contexto = regmaestro.contexto(regmaestro, 'UbicacionFisica')
+        contexto.idubicacionfisica = 3
+        self.assertRaises(ValueError, contexto.save)
 
-    #se intenta actualizar el registro maestro de un registro existente
     def test_regmas_ped_change_rm(self):
-        a = RegMaestro()
-        a.get(1)
-        b = a.contexto(a, "Pedimento")
-        b.get(1)
-        b.idregistromaestro = 2
-        self.assertRaises(ValueError, b.save)
+        regmaestro = RegMaestro()
+        regmaestro.get(1)
+        contexto = regmaestro.contexto(regmaestro, 'Pedimento')
+        contexto.get(1)
+        contexto.idregistromaestro = 2
+        self.assertRaises(ValueError, contexto.save)
 
-    #multiples registros maestros
     def test_regmas_ped_many_rm(self):
-        a = RegMaestro()
-        b = a.contexto(a, "Pedimento")
-        b.idregistromaestro = 1
-        self.assertRaises(ValueError, b.save)
+        regmaestro = RegMaestro()
+        contexto = regmaestro.contexto(regmaestro, 'Pedimento')
+        contexto.idregistromaestro = 1
+        self.assertRaises(ValueError, contexto.save)
+
+    def test_regmas_ped_update_keeps_registro_maestro(self):
+        regmaestro = RegMaestro()
+        regmaestro.get(1)
+        contexto = regmaestro.contexto(regmaestro, 'Pedimento')
+        contexto.get(1)
+        contexto.tamanominimolote = 30
+
+        contexto.save()
+
+        pedimento = RegmaestroPedimento.objects.get(id=1)
+        self.assertEqual(pedimento.id_registromaestro, 1)
+        self.assertEqual(pedimento.tamanominimolote, 30)

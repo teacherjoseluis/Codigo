@@ -1,3 +1,4 @@
+import logging
 import sys
 from abc import ABCMeta, abstractmethod # Clase para el manejo de clases abstractas
 from django.db import IntegrityError
@@ -8,6 +9,14 @@ from restaurante.data_object.CuentaContable_dataobject import CuentaContable_Rep
 from django.core.exceptions import ObjectDoesNotExist
 
 #from django.db.models import Max
+logger = logging.getLogger(__name__)
+
+
+def _log_integrity_error(message, error):
+    error_code = getattr(error, 'pgcode', getattr(error.__cause__, 'sqlstate', None))
+    logger.exception("%s: %s", message, error_code)
+
+
 #Clase Abstracta
 class UbicacionFisica_Repo(object):
     __metaclass__ = ABCMeta
@@ -46,36 +55,42 @@ class UbicacionFisica_Repo(object):
                  cuenta_ubicacionfisica.save()
                  ubicacionfisica.cuenta_contable = cuenta_ubicacionfisica.id
             except InterruptedError as e:
-                print ("Existe un error al tratar de guardar el objeto %err", e.pgcode)
+                _log_integrity_error("Existe un error al tratar de guardar el objeto", e)
+                raise
 
         else:
             ubicacionfisica = UbicacionFisica.objects.get(id=self.id)
 
         ubicacionfisica.nombre = self.nombre
         ubicacionfisica.descripcion = self.descripcion
+        ubicacionfisica.id_sucursalsistema = self.sucursal
+        ubicacionfisica.tipo = str(self.tipo)
+        ubicacionfisica.default = self.default
         ubicacionfisica.estatus = self.estatus
 
         try:
             with transaction.atomic():
                ubicacionfisica.save()
             self.id = ubicacionfisica.id
+            self.cuentacontable = ubicacionfisica.cuenta_contable
         except IntegrityError as e:
             #Lo recomendable es cachar la excepcion y llamar una funcion para propagarla mas arriba
-            print ("Existe un error al tratar de guardar el objeto %err", e.pgcode)
+            _log_integrity_error("Existe un error al tratar de guardar el objeto", e)
+            raise
 
     #Deshabilita la ubicacion fisica
     @abstractmethod
     def disable(self):
         # *Validacion de que la ubicacion fisica no sea asociada con Documento no cerrado
         if DetalleDocumento.objects.filter(id_ubicacionfisica1=self.id).exclude(estatus='C').count():
-            raise ValueError("Ubicacion fisica %uf esta en estatus diferente de cerrado")
+            raise ValueError("Ubicacion fisica {0} esta en estatus diferente de cerrado".format(self.id))
 
         if DetalleDocumento.objects.filter(id_ubicacionfisica2=self.id).exclude(estatus='C').count():
-            raise ValueError("Ubicacion fisica %uf esta en estatus diferente de cerrado")
+            raise ValueError("Ubicacion fisica {0} esta en estatus diferente de cerrado".format(self.id))
 
         # *Validacion de que la ubicacion fisica no sea asociada con Cuenta Contable con saldo diferente de cero
         if LibroCuentacontable.objects.filter(id_cuentacontable=self.cuentacontable,saldo__gt=0).count():
-            raise ValueError("La cuenta contable %uf tiene un saldo mayor a 0" % self.cuentacontable)
+            raise ValueError("La cuenta contable {0} tiene un saldo mayor a 0".format(self.cuentacontable))
 
     #Asignar la ubicacion fisica como default para la sucursal (lease almacen de recepcion de mercancias)
     '''@abstractmethod
@@ -85,7 +100,7 @@ class UbicacionFisica_Repo(object):
             try:
                 ubicacionfisica = UbicacionFisica.objects.filter(tipo=self.tipo, default=True).update(default=False)
             except:
-                print ("Ubicacion fisica no encontrada")
+                logger.exception("Ubicacion fisica no encontrada")
             # La ubicacion fisica se marca como default
             ubicacionfisica = UbicacionFisica.objects.get(id=self.id)
             ubicacionfisica.default=True
@@ -94,7 +109,8 @@ class UbicacionFisica_Repo(object):
                     ubicacionfisica.save()
             except IntegrityError as e:
                 #Lo recomendable es cachar la excepcion y llamar una funcion para propagarla mas arriba
-                print ("Existe un error al tratar de guardar el objeto %err", e.pgcode)
+                _log_integrity_error("Existe un error al tratar de guardar el objeto", e)
+                raise
     '''
     #Asignar/Desasignar usuario a/de la ubicacion fisica (add, del)
     @abstractmethod
@@ -116,7 +132,8 @@ class UbicacionFisica_Repo(object):
                         ubicacion_usuario.save()
                 except IntegrityError as e:
                     #Lo recomendable es cachar la excepcion y llamar una funcion para propagarla mas arriba
-                    print ("Existe un error al tratar de guardar el objeto")
+                    _log_integrity_error("Existe un error al tratar de guardar el objeto", e)
+                    raise
 
         if accion == 'del' :
             # Revisar que el usuario este asociado a la ubicacion fisica
@@ -179,7 +196,8 @@ class UbicacionFisica_Repo(object):
     def set_status(self, id_ubicacionfisica, estatus):
         try:
             ubicacionfisica = UbicacionFisica.objects.get(id=id_ubicacionfisica)
-            ubicacionfisica.estatus = self.estatus
+            ubicacionfisica.estatus = str(estatus)
             ubicacionfisica.save()
+            return ubicacionfisica.estatus
         except ObjectDoesNotExist:
             raise(ObjectDoesNotExist)

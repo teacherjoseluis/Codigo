@@ -471,6 +471,12 @@ class RegmaestroCompra(models.Model):
         managed = False
         db_table = 'RegMaestro_Compra'
 
+    def save(self, *args, **kwargs):
+        if not self.id:
+            pid = pgSQL_Utils()
+            self.id = pid.prefetch_id(self)
+        super(RegmaestroCompra, self).save(*args, **kwargs)
+
 
 class RegmaestroContabilidad(models.Model):
     id = models.IntegerField(db_column='ID', primary_key=True)  # Field name made lowercase.
@@ -481,6 +487,12 @@ class RegmaestroContabilidad(models.Model):
         managed = False
         db_table = 'RegMaestro_Contabilidad'
 
+    def save(self, *args, **kwargs):
+        if not self.id:
+            pid = pgSQL_Utils()
+            self.id = pid.prefetch_id(self)
+        super(RegmaestroContabilidad, self).save(*args, **kwargs)
+
 
 class RegmaestroFoto(models.Model):
     id = models.IntegerField(db_column='ID', primary_key=True)  # Field name made lowercase.
@@ -490,6 +502,12 @@ class RegmaestroFoto(models.Model):
     class Meta:
         managed = False
         db_table = 'RegMaestro_Foto'
+
+    def save(self, *args, **kwargs):
+        if not self.id:
+            pid = pgSQL_Utils()
+            self.id = pid.prefetch_id(self)
+        super(RegmaestroFoto, self).save(*args, **kwargs)
 
 
 class RegmaestroInventario(models.Model):
@@ -503,6 +521,12 @@ class RegmaestroInventario(models.Model):
     class Meta:
         managed = False
         db_table = 'RegMaestro_Inventario'
+
+    def save(self, *args, **kwargs):
+        if not self.id:
+            pid = pgSQL_Utils()
+            self.id = pid.prefetch_id(self)
+        super(RegmaestroInventario, self).save(*args, **kwargs)
 
 
 class RegmaestroPedimento(models.Model):
@@ -549,6 +573,12 @@ class RegmaestroVenta(models.Model):
     class Meta:
         managed = False
         db_table = 'RegMaestro_Venta'
+
+    def save(self, *args, **kwargs):
+        if not self.id:
+            pid = pgSQL_Utils()
+            self.id = pid.prefetch_id(self)
+        super(RegmaestroVenta, self).save(*args, **kwargs)
 
 
 class RegistroMaestro(models.Model):

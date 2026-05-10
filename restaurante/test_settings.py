@@ -56,7 +56,12 @@ class ManagedModelTestRunner(DiscoverRunner):
         with connection.cursor() as cursor:
             for model in self.unmanaged_models:
                 pk = model._meta.pk
-                if pk is None or pk.db_column != 'ID':
+                if pk is None or pk.get_internal_type() not in (
+                    'AutoField',
+                    'BigAutoField',
+                    'BigIntegerField',
+                    'IntegerField',
+                ):
                     continue
                 sequence_name = '{0}_ID_seq'.format(model._meta.db_table)
                 cursor.execute(
