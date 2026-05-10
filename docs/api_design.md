@@ -15,21 +15,32 @@ HTTP requests into domain operations and returns stable response shapes.
   user sources of truth.
 - Writes: call repository/factory classes instead of mutating legacy models
   directly. Use `transaction.atomic()` for workflows that span multiple tables.
+- Request tracing: every response includes `X-Request-ID`. Clients may pass the
+  same header to correlate retries and support tickets.
+- Pagination: list endpoints return DRF page envelopes:
+  `count`, `next`, `previous`, and `results`. Clients may request
+  `page` and `page_size` up to the configured maximum.
+- Filtering/search/ordering: list endpoints expose `search` and `ordering`
+  query parameters where a stable field set has been defined.
+- Schema: `GET /api/v1/schema/` exposes the OpenAPI contract.
 - Errors:
   - `ObjectDoesNotExist` -> `404` when the requested resource is missing.
   - `ValueError` -> `400` validation error.
   - `IntegrityError` -> `409` conflict for duplicate/incompatible state.
-- Response format: JSON objects/lists using existing model field names during
+- Error response format: `detail`, `code`, optional `request_id`, and optional
+  `errors` for field-level validation details.
+- Success response format: JSON objects using existing model field names during
   the first API phase. Introduce public DTO aliases only when frontend contracts
   require them.
 - Versioning: add incompatible changes under a new version prefix.
 
 ## Current skeleton
 
-The first API increment exposes safe, read-only endpoints that help validate the
-HTTP stack without opening transactional workflows:
+The API increment exposes read-only metadata, Registro Maestro, and the first
+transactional workflow endpoints:
 
 ```text
+GET /api/v1/schema/
 GET /api/v1/health/
 GET /api/v1/sucursales/
 GET /api/v1/sucursales/{id}/
@@ -37,6 +48,10 @@ GET /api/v1/catalogos/clasificaciones/
 GET /api/v1/catalogos/unidades-medida/
 GET /api/v1/catalogos/presentaciones/
 GET /api/v1/catalogos/tipos-cuenta-contable/
+GET/POST /api/v1/registros-maestro/
+GET/PATCH /api/v1/registros-maestro/{id}/
+POST /api/v1/registros-maestro/{id}/disable/
+GET/PUT /api/v1/registros-maestro/{id}/{contexto}/
 ```
 
 `/api/v1/health/` is public. Business endpoints require authentication.
@@ -102,20 +117,47 @@ GET/PUT /api/v1/registros-maestro/{id}/ubicaciones/{ubicacion_id}/
 
 ### Phase 4: transactional domains
 
-Defer these until the lower-risk endpoints prove the API conventions:
+Implemented as the first transactional API slice. Document creation accepts
+optional nested detalles, movimientos contables, and asiento mappings in a
+single atomic operation. If a nested row fails validation, the document header
+is rolled back.
 
 ```text
-/api/v1/documentos/
-/api/v1/documentos/{id}/detalles/
-/api/v1/documentos/{id}/movimientos/
-/api/v1/documentos/{id}/asientos/
-/api/v1/personas-fiscales/
-/api/v1/proveedores/
-/api/v1/clientes/
-/api/v1/empleados/
-/api/v1/folios/
-/api/v1/cuentas-contables/
+GET/POST   /api/v1/documentos/
+GET/PATCH  /api/v1/documentos/{id}/
+GET/POST   /api/v1/documentos/{id}/detalles/
+GET/PATCH  /api/v1/documentos/{id}/detalles/{detalle_id}/
+GET/POST   /api/v1/documentos/{id}/detalles/{detalle_id}/extras/
+GET/POST   /api/v1/documentos/{id}/movimientos/
+GET/PATCH  /api/v1/documentos/{id}/movimientos/{movimiento_id}/
+GET/POST   /api/v1/documentos/{id}/asientos/
+
+GET/POST   /api/v1/folios/
+GET/PATCH  /api/v1/folios/{id}/
+GET/POST   /api/v1/folios/{id}/numeraciones/
+
+GET/POST   /api/v1/personas-fiscales/
+GET/PATCH  /api/v1/personas-fiscales/{id}/
+GET/POST   /api/v1/proveedores/
+GET/PATCH  /api/v1/proveedores/{id}/
+GET/POST   /api/v1/clientes/
+GET/PATCH  /api/v1/clientes/{id}/
+GET/POST   /api/v1/cuentas-contables/
+GET/PATCH  /api/v1/cuentas-contables/{id}/
+
+GET/POST   /api/v1/catalogos/documento-movimientos/
+GET/POST   /api/v1/catalogos/documento-conceptos/
+GET/POST   /api/v1/catalogos/asientos-contables/
 ```
+
+Remaining deferred transactional work:
+
+- `empleados` and employee-specific permissions.
+- Posting rules that modify stock balances or accounting ledgers beyond the
+  current document, detalle, movimiento, and asiento row persistence.
+- Idempotency keys for externally retried document creation requests.
+- Deeper concurrency controls around folio reservation and stock movements once
+  the frontend request patterns are known.
 
 ## Implementation checklist for each endpoint group
 

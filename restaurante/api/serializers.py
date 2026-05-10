@@ -1,10 +1,28 @@
 from rest_framework import serializers
 
+from restaurante.api.permissions import require_ubicacion_scope
+from restaurante.api.services import create_documento_with_children, create_legacy_instance
 from restaurante.models import (
+    AsientoContable,
     CatalogoClasificacion,
+    ClaveFolio,
+    ClienteSistema,
+    CuentaContable,
+    DetalleDocumento,
+    Documento,
+    DocumentoAsiento,
+    DocumentoConcepto,
+    DocumentoMovimiento,
+    ExtradetalleDocumento,
+    MovimientoContable,
+    NumeracionFolio,
+    PersonaFiscal,
+    PersonafiscalProveedor,
     Presentacion,
+    RegistroMaestro,
     SucursalSistema,
     TipoCuentaContable,
+    UbicacionFisica,
     UnidadMedida,
 )
 
@@ -181,3 +199,337 @@ class RegMaestroFotoSerializer(serializers.Serializer):
         allow_null=True,
         required=False,
     )
+
+
+def _require_exists(model_class, pk, label):
+    if pk is None:
+        return
+    if not model_class.objects.filter(id=pk).exists():
+        raise serializers.ValidationError(
+            '{0} with id {1} does not exist.'.format(label, pk)
+        )
+
+
+class LegacyCreateModelSerializer(serializers.ModelSerializer):
+    def create(self, validated_data):
+        return create_legacy_instance(self.Meta.model, **validated_data)
+
+
+class CuentaContableSerializer(LegacyCreateModelSerializer):
+    class Meta:
+        model = CuentaContable
+        fields = [
+            'id',
+            'nombre',
+            'tipo',
+            'id_cliente',
+            'sub_tipo',
+            'id_subcuentacontable',
+        ]
+        read_only_fields = ['id']
+
+
+class ClaveFolioSerializer(LegacyCreateModelSerializer):
+    class Meta:
+        model = ClaveFolio
+        fields = [
+            'id',
+            'nombredocumento',
+            'clavefolio',
+            'id_clientesistema',
+        ]
+        read_only_fields = ['id']
+
+
+class NumeracionFolioSerializer(LegacyCreateModelSerializer):
+    class Meta:
+        model = NumeracionFolio
+        fields = [
+            'id',
+            'id_clavefolio',
+            'id_sucursal_sistema',
+            'numeroinicial',
+            'numerofinal',
+            'numeroactual',
+        ]
+        read_only_fields = ['id', 'id_clavefolio']
+
+    def validate(self, attrs):
+        _require_exists(SucursalSistema, attrs.get('id_sucursal_sistema'), 'Sucursal')
+        initial = attrs.get('numeroinicial')
+        final = attrs.get('numerofinal')
+        current = attrs.get('numeroactual')
+        if initial is not None and final is not None and initial > final:
+            raise serializers.ValidationError('numeroinicial cannot exceed numerofinal.')
+        if current is not None and initial is not None and current < initial:
+            raise serializers.ValidationError('numeroactual cannot be lower than numeroinicial.')
+        if current is not None and final is not None and current > final:
+            raise serializers.ValidationError('numeroactual cannot exceed numerofinal.')
+        return attrs
+
+
+class DocumentoMovimientoSerializer(LegacyCreateModelSerializer):
+    class Meta:
+        model = DocumentoMovimiento
+        fields = ['id', 'movimientodocumento']
+        read_only_fields = ['id']
+
+
+class DocumentoConceptoSerializer(LegacyCreateModelSerializer):
+    class Meta:
+        model = DocumentoConcepto
+        fields = [
+            'id',
+            'conceptodocumento',
+            'id_subcuentacontablecargo',
+            'id_clavefolio',
+            'id_movimiento',
+            'id_subcuentacontableabono',
+        ]
+        read_only_fields = ['id']
+
+    def validate(self, attrs):
+        _require_exists(ClaveFolio, attrs.get('id_clavefolio'), 'ClaveFolio')
+        _require_exists(DocumentoMovimiento, attrs.get('id_movimiento'), 'DocumentoMovimiento')
+        return attrs
+
+
+class AsientoContableSerializer(LegacyCreateModelSerializer):
+    class Meta:
+        model = AsientoContable
+        fields = [
+            'id',
+            'nombreclasificacion',
+            'nombreasiento',
+            'id_subcuentacontablecargo',
+            'id_subcuentacontableabono',
+            'montocalculado',
+        ]
+        read_only_fields = ['id']
+
+
+class PersonaFiscalSerializer(LegacyCreateModelSerializer):
+    class Meta:
+        model = PersonaFiscal
+        fields = [
+            'id',
+            'nombre',
+            'direccion',
+            'telefono1',
+            'telefono2',
+            'telefono3',
+            'correoelectronico',
+            'personacontacto',
+            'raz_n_social',
+            'rfc',
+            'domiciliofiscal',
+            'tipo',
+            'estatus',
+            'fechanacimiento',
+            'fechaaniversario',
+            'cuentabancaria1',
+            'banco1',
+            'cuentabancaria2',
+            'banco2',
+            'cuentabancaria3',
+            'banco3',
+            'cuenta_contable',
+        ]
+        read_only_fields = ['id']
+
+
+class ClienteSistemaSerializer(LegacyCreateModelSerializer):
+    class Meta:
+        model = ClienteSistema
+        fields = ['id', 'id_personafiscal']
+        read_only_fields = ['id']
+
+    def validate(self, attrs):
+        _require_exists(PersonaFiscal, attrs.get('id_personafiscal'), 'PersonaFiscal')
+        return attrs
+
+
+class PersonafiscalProveedorSerializer(LegacyCreateModelSerializer):
+    class Meta:
+        model = PersonafiscalProveedor
+        fields = [
+            'id',
+            'id_personafiscal',
+            'diascredito',
+            'tiemposurtido',
+        ]
+        read_only_fields = ['id']
+
+    def validate(self, attrs):
+        _require_exists(PersonaFiscal, attrs.get('id_personafiscal'), 'PersonaFiscal')
+        return attrs
+
+
+class DetalleDocumentoSerializer(LegacyCreateModelSerializer):
+    class Meta:
+        model = DetalleDocumento
+        fields = [
+            'id',
+            'id_documento',
+            'id_registromaestro',
+            'id_personafiscal',
+            'id_ubicacionfisica1',
+            'id_ubicacionfisica2',
+            'subtotal',
+            'comentarios',
+            'estatus',
+            'id_cuentabancaria1',
+            'id_cuentabancaria2',
+        ]
+        read_only_fields = ['id', 'id_documento']
+
+    def validate(self, attrs):
+        _require_exists(RegistroMaestro, attrs.get('id_registromaestro'), 'RegistroMaestro')
+        _require_exists(PersonaFiscal, attrs.get('id_personafiscal'), 'PersonaFiscal')
+        _require_exists(UbicacionFisica, attrs.get('id_ubicacionfisica1'), 'UbicacionFisica')
+        _require_exists(UbicacionFisica, attrs.get('id_ubicacionfisica2'), 'UbicacionFisica')
+
+        request = self.context.get('request')
+        if request is not None:
+            require_ubicacion_scope(
+                request.user,
+                [attrs.get('id_ubicacionfisica1'), attrs.get('id_ubicacionfisica2')],
+            )
+        return attrs
+
+
+class ExtradetalleDocumentoSerializer(LegacyCreateModelSerializer):
+    class Meta:
+        model = ExtradetalleDocumento
+        fields = [
+            'id',
+            'id_detalledocumento',
+            'numerocomensales',
+            'id_presentacion',
+            'cantidad',
+            'costopreciounitario',
+            'costopreciototal',
+            'cantidadsurtida',
+            'fechahoraapertura',
+            'fechahoracierre',
+            'saldoapertura',
+            'saldocierre',
+        ]
+        read_only_fields = ['id', 'id_detalledocumento']
+
+    def validate(self, attrs):
+        _require_exists(Presentacion, attrs.get('id_presentacion'), 'Presentacion')
+        return attrs
+
+
+class MovimientoContableSerializer(LegacyCreateModelSerializer):
+    class Meta:
+        model = MovimientoContable
+        fields = [
+            'id',
+            'id_librosucursal',
+            'id_documento',
+            'id_documentoconcepto',
+        ]
+        read_only_fields = ['id', 'id_documento']
+
+    def validate(self, attrs):
+        _require_exists(DocumentoConcepto, attrs.get('id_documentoconcepto'), 'DocumentoConcepto')
+        return attrs
+
+
+class DocumentoAsientoSerializer(LegacyCreateModelSerializer):
+    class Meta:
+        model = DocumentoAsiento
+        fields = [
+            'id',
+            'id_clavefolio',
+            'id_conceptodocumento',
+            'id_movimientodocumento',
+            'id_asiento',
+        ]
+        read_only_fields = ['id']
+
+    def validate(self, attrs):
+        _require_exists(ClaveFolio, attrs.get('id_clavefolio'), 'ClaveFolio')
+        _require_exists(DocumentoConcepto, attrs.get('id_conceptodocumento'), 'DocumentoConcepto')
+        _require_exists(DocumentoMovimiento, attrs.get('id_movimientodocumento'), 'DocumentoMovimiento')
+        _require_exists(AsientoContable, attrs.get('id_asiento'), 'AsientoContable')
+        return attrs
+
+
+class DocumentoSerializer(LegacyCreateModelSerializer):
+    detalles = DetalleDocumentoSerializer(many=True, required=False)
+    movimientos_contables = MovimientoContableSerializer(many=True, required=False)
+    asientos = DocumentoAsientoSerializer(many=True, required=False)
+
+    class Meta:
+        model = Documento
+        fields = [
+            'id',
+            'fecha_hora',
+            'id_clavefolio',
+            'id_usuario',
+            'monto',
+            'id_documentoorigen',
+            'id_conceptodocumento',
+            'foliointerno',
+            'estatus',
+            'id_documentomovimiento',
+            'foliodocumento',
+            'id_subcuentacontableabono',
+            'detalles',
+            'movimientos_contables',
+            'asientos',
+        ]
+        read_only_fields = ['id']
+
+    def validate(self, attrs):
+        _require_exists(ClaveFolio, attrs.get('id_clavefolio'), 'ClaveFolio')
+        _require_exists(Documento, attrs.get('id_documentoorigen'), 'Documento')
+        _require_exists(DocumentoConcepto, attrs.get('id_conceptodocumento'), 'DocumentoConcepto')
+        _require_exists(DocumentoMovimiento, attrs.get('id_documentomovimiento'), 'DocumentoMovimiento')
+        return attrs
+
+    def create(self, validated_data):
+        detalles = validated_data.pop('detalles', [])
+        movimientos_contables = validated_data.pop('movimientos_contables', [])
+        asientos = validated_data.pop('asientos', [])
+        request = self.context.get('request')
+        if request is not None and not validated_data.get('id_usuario'):
+            validated_data['id_usuario'] = request.user.id
+        return create_documento_with_children(
+            validated_data,
+            detalles=detalles,
+            movimientos_contables=movimientos_contables,
+            asientos=asientos,
+        )
+
+    def update(self, instance, validated_data):
+        validated_data.pop('detalles', None)
+        validated_data.pop('movimientos_contables', None)
+        validated_data.pop('asientos', None)
+        return super().update(instance, validated_data)
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        data['detalles'] = DetalleDocumentoSerializer(
+            DetalleDocumento.objects.filter(id_documento=instance.id).order_by('id'),
+            many=True,
+            context=self.context,
+        ).data
+        data['movimientos_contables'] = MovimientoContableSerializer(
+            MovimientoContable.objects.filter(id_documento=instance.id).order_by('id'),
+            many=True,
+            context=self.context,
+        ).data
+        data['asientos'] = DocumentoAsientoSerializer(
+            DocumentoAsiento.objects.filter(
+                id_clavefolio=instance.id_clavefolio,
+                id_conceptodocumento=instance.id_conceptodocumento,
+                id_movimientodocumento=instance.id_documentomovimiento,
+            ).order_by('id'),
+            many=True,
+            context=self.context,
+        ).data
+        return data

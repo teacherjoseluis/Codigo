@@ -6,10 +6,24 @@ from rest_framework.test import APIClient
 
 from restaurante.factory.RegMaestro_factory import RegMaestro
 from restaurante.models import (
+    AsientoContable,
     AuthUser_Sucursal,
+    AuthUser_UbicacionFisica,
     CatalogoClasificacion,
+    ClaveFolio,
+    ClienteSistema,
     CuentaContable,
     DetalleUbicacion,
+    DetalleDocumento,
+    Documento,
+    DocumentoAsiento,
+    DocumentoConcepto,
+    DocumentoMovimiento,
+    ExtradetalleDocumento,
+    MovimientoContable,
+    NumeracionFolio,
+    PersonaFiscal,
+    PersonafiscalProveedor,
     Presentacion,
     RegmaestroCompra,
     RegmaestroContabilidad,
@@ -94,6 +108,51 @@ class LegacyFixtureMixin(object):
             marca='Generica',
             estatus='1',
         )
+        PersonaFiscal.objects.create(
+            id=1,
+            nombre='Proveedor Fiscal',
+            direccion='Centro',
+            telefono1='555-1000',
+            telefono2='',
+            telefono3='',
+            correoelectronico='proveedor@example.com',
+            personacontacto='Contacto Fiscal',
+            raz_n_social='Proveedor Fiscal SA',
+            rfc='PFS010101AAA',
+            domiciliofiscal='Centro',
+            tipo='Proveedor',
+            estatus='1',
+        )
+        ClienteSistema.objects.create(id=1, id_personafiscal=1)
+        PersonafiscalProveedor.objects.create(
+            id=1,
+            id_personafiscal=1,
+            diascredito=15,
+            tiemposurtido=2,
+        )
+        ClaveFolio.objects.create(
+            id=1,
+            nombredocumento='Compra',
+            clavefolio='COM',
+            id_clientesistema=1,
+        )
+        DocumentoMovimiento.objects.create(id=1, movimientodocumento='Entrada')
+        DocumentoConcepto.objects.create(
+            id=1,
+            conceptodocumento='Compra insumos',
+            id_subcuentacontablecargo=1,
+            id_clavefolio=1,
+            id_movimiento=1,
+            id_subcuentacontableabono=1,
+        )
+        AsientoContable.objects.create(
+            id=1,
+            nombreclasificacion='Compras',
+            nombreasiento='Cargo inventario',
+            id_subcuentacontablecargo=1,
+            id_subcuentacontableabono=1,
+            montocalculado=True,
+        )
         UbicacionFisica.objects.create(
             id=1,
             id_sucursalsistema=1,
@@ -154,6 +213,8 @@ class LegacyFixtureMixin(object):
             plancompra=True,
         )
         AuthUser_Sucursal.objects.create(id=1, user=1, sucursal=1)
+        AuthUser_UbicacionFisica.objects.create(id=1, user=1, ubicacionfisica=1)
+        AuthUser_UbicacionFisica.objects.create(id=2, user=1, ubicacionfisica=3)
         cls._sync_sequences()
 
     @classmethod
@@ -162,10 +223,23 @@ class LegacyFixtureMixin(object):
             return
 
         sequence_values = {
+            'Asiento_Contable': 100,
             'AuthUser_Sucursal': 100,
+            'AuthUser_UbicacionFisica': 100,
             'Catalogo_Clasificacion': 100,
+            'Cliente_Sistema': 100,
             'Cuenta_Contable': 100,
+            'Detalle_Documento': 100,
             'Detalle_Ubicacion': 100,
+            'Documento': 100,
+            'Documento_Asiento': 100,
+            'Documento_Concepto': 100,
+            'Documento_Movimiento': 100,
+            'ExtraDetalle_Documento': 100,
+            'Movimiento_Contable': 100,
+            'Numeracion_Folio': 100,
+            'Persona_Fiscal': 100,
+            'PersonaFiscal_Proveedor': 100,
             'RegMaestro_Compra': 100,
             'RegMaestro_Contabilidad': 100,
             'RegMaestro_Foto': 100,
@@ -342,13 +416,15 @@ class APISkeletonTests(LegacyFixtureMixin, TestCase):
             username='api-user',
             password='secret',
         )
+        AuthUser_Sucursal.objects.create(id=201, user=self.user.id, sucursal=1)
 
     def test_health_endpoint_is_public(self):
-        response = self.client.get('/api/v1/health/')
+        response = self.client.get('/api/v1/health/', HTTP_X_REQUEST_ID='test-request-id')
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data['status'], 'ok')
         self.assertEqual(response.data['service'], 'restaurante-api')
+        self.assertEqual(response['X-Request-ID'], 'test-request-id')
 
     def test_business_endpoints_require_authentication(self):
         response = self.client.get('/api/v1/sucursales/')
@@ -362,8 +438,8 @@ class APISkeletonTests(LegacyFixtureMixin, TestCase):
         detail_response = self.client.get('/api/v1/sucursales/1/')
 
         self.assertEqual(list_response.status_code, 200)
-        self.assertEqual(len(list_response.data), 2)
-        self.assertEqual(list_response.data[0]['nombre'], 'Sucursal Centro')
+        self.assertEqual(list_response.data['count'], 1)
+        self.assertEqual(list_response.data['results'][0]['nombre'], 'Sucursal Centro')
         self.assertEqual(detail_response.status_code, 200)
         self.assertEqual(detail_response.data['identificadorcorto'], 'CEN')
 
@@ -386,8 +462,17 @@ class APISkeletonTests(LegacyFixtureMixin, TestCase):
         for endpoint, expected_field in endpoints.items():
             response = self.client.get(endpoint)
             self.assertEqual(response.status_code, 200)
-            self.assertGreaterEqual(len(response.data), 1)
-            self.assertIn(expected_field, response.data[0])
+            self.assertGreaterEqual(len(response.data['results']), 1)
+            self.assertIn(expected_field, response.data['results'][0])
+
+    def test_schema_endpoint_exposes_openapi_contract(self):
+        self.client.force_authenticate(user=self.user)
+
+        response = self.client.get('/api/v1/schema/')
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data['info']['title'], 'Restaurante API')
+        self.assertIn('/api/v1/documentos/', response.data['paths'])
 
 
 class RegistroMaestroAPITests(LegacyFixtureMixin, TestCase):
@@ -423,7 +508,7 @@ class RegistroMaestroAPITests(LegacyFixtureMixin, TestCase):
         )
 
         self.assertEqual(list_response.status_code, 200)
-        self.assertEqual(len(list_response.data), 2)
+        self.assertEqual(list_response.data['count'], 2)
         self.assertEqual(detail_response.status_code, 200)
         self.assertEqual(detail_response.data['nombre'], 'Tomate')
         self.assertEqual(create_response.status_code, 201)
@@ -613,3 +698,224 @@ class RegistroMaestroAPITests(LegacyFixtureMixin, TestCase):
         self.assertEqual(pedimento.tamanominimolote, 25)
         self.assertEqual(pedimento.existenciasrequeridas, 40)
         self.assertFalse(pedimento.plancompra)
+
+
+class TransactionalAPITests(LegacyFixtureMixin, TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.user = get_user_model().objects.create_user(
+            username='transaction-api-user',
+            password='secret',
+        )
+        AuthUser_Sucursal.objects.create(id=101, user=self.user.id, sucursal=1)
+        AuthUser_UbicacionFisica.objects.create(
+            id=101,
+            user=self.user.id,
+            ubicacionfisica=1,
+        )
+        AuthUser_UbicacionFisica.objects.create(
+            id=102,
+            user=self.user.id,
+            ubicacionfisica=3,
+        )
+        self.client.force_authenticate(user=self.user)
+
+    def test_documento_create_is_atomic_and_returns_nested_transaction_rows(self):
+        response = self.client.post(
+            '/api/v1/documentos/',
+            {
+                'id_clavefolio': 1,
+                'id_conceptodocumento': 1,
+                'id_documentomovimiento': 1,
+                'foliointerno': 'TMP-1',
+                'foliodocumento': 'COM-101',
+                'detalles': [
+                    {
+                        'id_registromaestro': 1,
+                        'id_personafiscal': 1,
+                        'id_ubicacionfisica1': 1,
+                        'id_ubicacionfisica2': 3,
+                        'subtotal': 125,
+                        'comentarios': 'Compra de prueba',
+                        'estatus': '1',
+                    },
+                ],
+                'movimientos_contables': [
+                    {
+                        'id_librosucursal': 1,
+                        'id_documentoconcepto': 1,
+                    },
+                ],
+                'asientos': [
+                    {
+                        'id_asiento': 1,
+                    },
+                ],
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.data['monto'], 125)
+        self.assertEqual(response.data['id_usuario'], self.user.id)
+        self.assertEqual(len(response.data['detalles']), 1)
+        self.assertEqual(len(response.data['movimientos_contables']), 1)
+        self.assertEqual(len(response.data['asientos']), 1)
+        self.assertTrue(Documento.objects.filter(id=response.data['id']).exists())
+        self.assertTrue(
+            DetalleDocumento.objects.filter(
+                id_documento=response.data['id'],
+                subtotal=125,
+            ).exists()
+        )
+        self.assertTrue(
+            MovimientoContable.objects.filter(id_documento=response.data['id']).exists()
+        )
+        self.assertTrue(DocumentoAsiento.objects.filter(id_asiento=1).exists())
+
+    def test_documento_create_rolls_back_when_child_validation_fails(self):
+        before_count = Documento.objects.count()
+
+        response = self.client.post(
+            '/api/v1/documentos/',
+            {
+                'id_clavefolio': 1,
+                'id_conceptodocumento': 1,
+                'id_documentomovimiento': 1,
+                'detalles': [
+                    {
+                        'id_registromaestro': 999,
+                        'subtotal': 50,
+                        'estatus': '1',
+                    },
+                ],
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.data['code'], 'validation_error')
+        self.assertEqual(Documento.objects.count(), before_count)
+
+    def test_documento_child_endpoints_enforce_scope_and_support_search(self):
+        documento = Documento.objects.create(
+            id=1,
+            id_clavefolio=1,
+            id_usuario=self.user.id,
+            monto=80,
+            id_conceptodocumento=1,
+            foliointerno='TMP-2',
+            estatus='1',
+            id_documentomovimiento=1,
+            foliodocumento='COM-102',
+        )
+
+        allowed_response = self.client.post(
+            '/api/v1/documentos/{0}/detalles/'.format(documento.id),
+            {
+                'id_registromaestro': 1,
+                'id_personafiscal': 1,
+                'id_ubicacionfisica1': 1,
+                'subtotal': 80,
+                'comentarios': 'Salsa verde',
+                'estatus': '1',
+            },
+            format='json',
+        )
+        blocked_response = self.client.post(
+            '/api/v1/documentos/{0}/detalles/'.format(documento.id),
+            {
+                'id_registromaestro': 1,
+                'id_personafiscal': 1,
+                'id_ubicacionfisica1': 2,
+                'subtotal': 20,
+                'comentarios': 'Sin permiso',
+                'estatus': '1',
+            },
+            format='json',
+        )
+        search_response = self.client.get(
+            '/api/v1/documentos/{0}/detalles/?search=Salsa'.format(documento.id)
+        )
+
+        self.assertEqual(allowed_response.status_code, 201)
+        self.assertEqual(blocked_response.status_code, 403)
+        self.assertEqual(search_response.status_code, 200)
+        self.assertEqual(search_response.data['count'], 1)
+        self.assertEqual(search_response.data['results'][0]['comentarios'], 'Salsa verde')
+
+    def test_folios_personas_proveedores_clientes_and_cuentas_endpoints(self):
+        folio_response = self.client.post(
+            '/api/v1/folios/',
+            {
+                'nombredocumento': 'Venta',
+                'clavefolio': 'VEN',
+                'id_clientesistema': 1,
+            },
+            format='json',
+        )
+        numeracion_response = self.client.post(
+            '/api/v1/folios/{0}/numeraciones/'.format(folio_response.data['id']),
+            {
+                'id_sucursal_sistema': 1,
+                'numeroinicial': 1,
+                'numerofinal': 500,
+                'numeroactual': 1,
+            },
+            format='json',
+        )
+        persona_response = self.client.post(
+            '/api/v1/personas-fiscales/',
+            {
+                'nombre': 'Cliente Fiscal',
+                'direccion': 'Norte',
+                'telefono1': '555-2000',
+                'correoelectronico': 'cliente@example.com',
+                'personacontacto': 'Cliente',
+                'raz_n_social': 'Cliente Fiscal SA',
+                'rfc': 'CFS010101AAA',
+                'domiciliofiscal': 'Norte',
+                'tipo': 'Cliente',
+                'estatus': '1',
+            },
+            format='json',
+        )
+        cliente_response = self.client.post(
+            '/api/v1/clientes/',
+            {'id_personafiscal': persona_response.data['id']},
+            format='json',
+        )
+        proveedor_response = self.client.post(
+            '/api/v1/proveedores/',
+            {
+                'id_personafiscal': persona_response.data['id'],
+                'diascredito': 30,
+                'tiemposurtido': 4,
+            },
+            format='json',
+        )
+        cuenta_response = self.client.post(
+            '/api/v1/cuentas-contables/',
+            {
+                'nombre': 'Inventario nuevo',
+                'tipo': 1,
+                'id_cliente': 1,
+                'sub_tipo': '1',
+            },
+            format='json',
+        )
+
+        self.assertEqual(folio_response.status_code, 201)
+        self.assertEqual(numeracion_response.status_code, 201)
+        self.assertEqual(persona_response.status_code, 201)
+        self.assertEqual(cliente_response.status_code, 201)
+        self.assertEqual(proveedor_response.status_code, 201)
+        self.assertEqual(cuenta_response.status_code, 201)
+        self.assertTrue(NumeracionFolio.objects.filter(id_clavefolio=folio_response.data['id']).exists())
+        self.assertTrue(ClienteSistema.objects.filter(id=cliente_response.data['id']).exists())
+        self.assertTrue(
+            PersonafiscalProveedor.objects.filter(
+                id=proveedor_response.data['id'],
+                diascredito=30,
+            ).exists()
+        )

@@ -1,4 +1,5 @@
 from django.urls import path
+from rest_framework.schemas import get_schema_view
 
 from restaurante.api import views
 
@@ -6,6 +7,15 @@ from restaurante.api import views
 app_name = 'api'
 
 urlpatterns = [
+    path(
+        'schema/',
+        get_schema_view(
+            title='Restaurante API',
+            description='Versioned API contract for restaurant middleware endpoints.',
+            version='1.0.0',
+        ),
+        name='openapi-schema',
+    ),
     path('health/', views.HealthAPIView.as_view(), name='health'),
     path(
         'sucursales/',
@@ -86,5 +96,115 @@ urlpatterns = [
         'registros-maestro/<int:pk>/ubicaciones/<int:ubicacion_id>/',
         views.RegistroMaestroUbicacionFisicaAPIView.as_view(),
         name='registro-maestro-ubicacion',
+    ),
+    path(
+        'documentos/',
+        views.DocumentoListCreateAPIView.as_view(),
+        name='documento-list',
+    ),
+    path(
+        'documentos/<int:pk>/',
+        views.DocumentoDetailAPIView.as_view(),
+        name='documento-detail',
+    ),
+    path(
+        'documentos/<int:documento_id>/detalles/',
+        views.DocumentoDetalleListCreateAPIView.as_view(),
+        name='documento-detalle-list',
+    ),
+    path(
+        'documentos/<int:documento_id>/detalles/<int:child_id>/',
+        views.DocumentoDetalleDetailAPIView.as_view(),
+        name='documento-detalle-detail',
+    ),
+    path(
+        'documentos/<int:documento_id>/detalles/<int:detalle_id>/extras/',
+        views.DetalleExtraListCreateAPIView.as_view(),
+        name='documento-detalle-extra-list',
+    ),
+    path(
+        'documentos/<int:documento_id>/movimientos/',
+        views.DocumentoMovimientoContableListCreateAPIView.as_view(),
+        name='documento-movimiento-contable-list',
+    ),
+    path(
+        'documentos/<int:documento_id>/movimientos/<int:child_id>/',
+        views.DocumentoMovimientoContableDetailAPIView.as_view(),
+        name='documento-movimiento-contable-detail',
+    ),
+    path(
+        'documentos/<int:documento_id>/asientos/',
+        views.DocumentoAsientoListCreateAPIView.as_view(),
+        name='documento-asiento-list',
+    ),
+    path(
+        'folios/',
+        views.ClaveFolioListCreateAPIView.as_view(),
+        name='folio-list',
+    ),
+    path(
+        'folios/<int:pk>/',
+        views.ClaveFolioDetailAPIView.as_view(),
+        name='folio-detail',
+    ),
+    path(
+        'folios/<int:folio_id>/numeraciones/',
+        views.FolioNumeracionListCreateAPIView.as_view(),
+        name='folio-numeracion-list',
+    ),
+    path(
+        'catalogos/documento-movimientos/',
+        views.DocumentoMovimientoListCreateAPIView.as_view(),
+        name='documento-movimiento-list',
+    ),
+    path(
+        'catalogos/documento-conceptos/',
+        views.DocumentoConceptoListCreateAPIView.as_view(),
+        name='documento-concepto-list',
+    ),
+    path(
+        'catalogos/asientos-contables/',
+        views.AsientoContableListCreateAPIView.as_view(),
+        name='asiento-contable-list',
+    ),
+    path(
+        'personas-fiscales/',
+        views.PersonaFiscalListCreateAPIView.as_view(),
+        name='persona-fiscal-list',
+    ),
+    path(
+        'personas-fiscales/<int:pk>/',
+        views.PersonaFiscalDetailAPIView.as_view(),
+        name='persona-fiscal-detail',
+    ),
+    path(
+        'clientes/',
+        views.ClienteSistemaListCreateAPIView.as_view(),
+        name='cliente-sistema-list',
+    ),
+    path(
+        'clientes/<int:pk>/',
+        views.ClienteSistemaDetailAPIView.as_view(),
+        name='cliente-sistema-detail',
+    ),
+    path(
+        'proveedores/',
+        views.PersonafiscalProveedorListCreateAPIView.as_view(),
+        name='proveedor-list',
+    ),
+    path(
+        'proveedores/<int:pk>/',
+        views.PersonafiscalProveedorDetailAPIView.as_view(),
+        name='proveedor-detail',
+    ),
+    path(
+        'cuentas-contables/',
+        views.CuentaContableListCreateAPIView.as_view(),
+        name='cuenta-contable-list',
+    ),
+    path(
+        'cuentas-contables/<int:pk>/',
+        views.CuentaContableDetailAPIView.as_view(),
+        name='cuenta-contable-detail',
     ),
 ]
