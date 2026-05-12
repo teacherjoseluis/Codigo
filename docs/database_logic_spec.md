@@ -24,7 +24,7 @@ Run:
 
 ```bash
 python3 manage.py install_database_logic
-python3 manage.py seed_flow_folio_config
+python3 manage.py seed_database_logic_config
 ```
 
 The command executes:
@@ -36,6 +36,10 @@ restaurante/sql/database_logic.sql
 `seed_flow_folio_config` is idempotent supporting-data setup for the generated
 flow document names used by the SQL functions: `Flujo_Almacen`, `Flujo_Caja`,
 `Flujo_Bancos`, and `Flujo_Contable`.
+`seed_database_logic_config` includes that flow setup and also seeds the
+minimal document movements, operational source folio/concepts, accounts, and
+current accounting book rows needed by database workflow tests and local API
+development.
 
 ## Implemented Coverage
 
