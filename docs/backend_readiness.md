@@ -12,6 +12,7 @@ legacy unmanaged tables and `*_ID_seq` sequences from the model metadata:
 python3 manage.py migrate
 python3 manage.py bootstrap_legacy_schema
 python3 manage.py install_database_logic
+python3 manage.py seed_flow_folio_config
 ```
 
 Preview the bootstrap work without changing the database:
@@ -19,6 +20,7 @@ Preview the bootstrap work without changing the database:
 ```bash
 python3 manage.py bootstrap_legacy_schema --dry-run
 python3 manage.py install_database_logic --dry-run
+python3 manage.py seed_flow_folio_config --dry-run
 ```
 
 Do not add a `restaurante/migrations/` directory unless the unmanaged legacy
@@ -45,6 +47,10 @@ The installed logic covers the first database-side workflow slice:
 The legacy schema must contain the supporting folio records for system flow
 documents (`Flujo_Almacen`, `Flujo_Caja`, `Flujo_Bancos`,
 `Flujo_Contable`) before apply procedures can create generated documents.
+Run `seed_flow_folio_config` after schema/bootstrap changes to create any
+missing `Clave_Folio` and `Numeracion_Folio` rows. In an empty development
+database, the command also creates a minimal default client/branch so folio
+generation has a valid `Sucursal_Sistema` context.
 
 ## Auth and permissions
 
