@@ -1,7 +1,7 @@
 from django.contrib.auth import get_user_model
 from django.core.management import call_command
 from django.core.exceptions import ObjectDoesNotExist
-from django.db import connection
+from django.db import DatabaseError, connection, transaction
 from django.test import TestCase
 from rest_framework.test import APIClient
 
@@ -14,6 +14,7 @@ from restaurante.models import (
     CatalogoClasificacion,
     ClaveFolio,
     ClienteSistema,
+    CuentaBancaria,
     CuentaContable,
     DetalleUbicacion,
     DetalleDocumento,
@@ -22,8 +23,14 @@ from restaurante.models import (
     DocumentoConcepto,
     DocumentoMovimiento,
     ExtradetalleDocumento,
+    LibroContable,
+    LibroSucursal,
+    MontoCalculado,
+    MontoCalculadoDetalle,
     MovimientoContable,
     NumeracionFolio,
+    PerfilImpuesto,
+    PerfilimpuestoMontocalculado,
     PersonaFiscal,
     PersonafiscalProveedor,
     Presentacion,
@@ -340,6 +347,250 @@ class FlowFolioConfigTests(LegacyFixtureMixin, TestCase):
             NumeracionFolio.objects.get(id=id_numeracion_folio).numeroactual,
             2,
         )
+
+
+class DatabaseLogicWorkflowTests(LegacyFixtureMixin, TestCase):
+    def setUp(self):
+        call_command('install_database_logic', verbosity=0)
+        call_command('seed_database_logic_config', verbosity=0)
+        self._ensure_workflow_resources()
+
+    def _ensure_workflow_resources(self):
+        DocumentoConcepto.objects.filter(id=1).update(
+            id_subcuentacontablecargo=1,
+            id_subcuentacontableabono=2,
+        )
+        if not CuentaBancaria.objects.filter(id=1).exists():
+            CuentaBancaria.objects.create(
+                id=1,
+                nombrebanco='Banco pruebas',
+                tipocuenta='Cheques',
+                moneda='MXN',
+                id_subcuentacontable=1,
+                saldo=100,
+            )
+        if not Presentacion.objects.filter(id=1).exists():
+            Presentacion.objects.create(
+                id=1,
+                nombrepresentacion='Pieza',
+                tipo='Inventario',
+            )
+
+    def _legacy_id(self, table_name):
+        with connection.cursor() as cursor:
+            cursor.execute('SELECT restaurante_next_legacy_id(%s)', [table_name])
+            return cursor.fetchone()[0]
+
+    def _scalar(self, sql, params=None):
+        with connection.cursor() as cursor:
+            cursor.execute(sql, params or [])
+            return cursor.fetchone()[0]
+
+    def _create_documento(self, movement_id=1, concepto_id=1, monto=None):
+        documento_id = self._scalar(
+            'SELECT crear_documento(%s, %s, %s, NULL, %s, %s)',
+            [1, 'Operacion_DB', 1, concepto_id, movement_id],
+        )
+        if monto is not None:
+            Documento.objects.filter(id=documento_id).update(monto=monto)
+        return documento_id
+
+    def _add_detalle(self, documento_id, **overrides):
+        values = {
+            'id': self._legacy_id('Detalle_Documento'),
+            'id_documento': documento_id,
+            'id_registromaestro': 1,
+            'id_personafiscal': 1,
+            'id_ubicacionfisica1': None,
+            'id_ubicacionfisica2': None,
+            'subtotal': 0,
+            'comentarios': 'detalle db logic',
+            'estatus': '1',
+            'id_cuentabancaria1': None,
+            'id_cuentabancaria2': None,
+        }
+        values.update(overrides)
+        return DetalleDocumento.objects.create(**values)
+
+    def _add_extra(self, detalle, **overrides):
+        values = {
+            'id': self._legacy_id('ExtraDetalle_Documento'),
+            'id_detalledocumento': detalle.id,
+            'numerocomensales': 0,
+            'id_presentacion': 1,
+            'cantidad': 0,
+            'costopreciounitario': 0,
+            'costopreciototal': 0,
+            'cantidadsurtida': 0,
+            'saldoapertura': 0,
+            'saldocierre': 0,
+        }
+        values.update(overrides)
+        return ExtradetalleDocumento.objects.create(**values)
+
+    def test_document_lifecycle_functions_create_recalculate_and_close(self):
+        documento_id = self._create_documento(movement_id=1, concepto_id=1)
+        self._add_detalle(documento_id, subtotal=80)
+
+        total = self._scalar('SELECT recalcular_documento(%s)', [documento_id])
+        closed = self._scalar('SELECT cerrar_documento(%s)', [documento_id])
+
+        documento = Documento.objects.get(id=documento_id)
+        self.assertEqual(total, 80)
+        self.assertTrue(closed)
+        self.assertEqual(documento.monto, 80)
+        self.assertEqual(documento.estatus, 'C')
+        self.assertTrue(documento.foliodocumento.startswith('ODB_CEN_'))
+
+    def test_inventory_entry_and_exit_update_lots_stock_and_generated_documents(self):
+        entrada_id = self._create_documento(movement_id=1, concepto_id=1)
+        entrada_detalle = self._add_detalle(
+            entrada_id,
+            id_ubicacionfisica1=1,
+            subtotal=100,
+        )
+        self._add_extra(
+            entrada_detalle,
+            cantidad=5,
+            costopreciounitario=20,
+            costopreciototal=100,
+        )
+
+        self._scalar('SELECT aplicar_movimientoalmacen(%s, %s)', [entrada_id, 1])
+
+        stock = RegmaestroUbicacionfisica.objects.get(
+            id_registromaestro=1,
+            id_ubicacionfisica=1,
+        )
+        self.assertEqual(stock.existencias, 5)
+        self.assertTrue(
+            Documento.objects.filter(
+                id_documentoorigen=entrada_id,
+                estatus='C',
+            ).exists()
+        )
+
+        salida_id = self._create_documento(movement_id=2, concepto_id=2)
+        salida_detalle = self._add_detalle(
+            salida_id,
+            id_ubicacionfisica1=1,
+            id_ubicacionfisica2=1,
+            subtotal=0,
+        )
+        self._add_extra(salida_detalle, cantidad=3)
+
+        self._scalar('SELECT aplicar_movimientoalmacen(%s, %s)', [salida_id, 1])
+
+        stock.refresh_from_db()
+        self.assertEqual(stock.existencias, 2)
+        self.assertTrue(
+            ExtradetalleDocumento.objects.filter(
+                id_detalledocumento__in=DetalleDocumento.objects.filter(
+                    id_documento__in=Documento.objects.filter(
+                        id_documentoorigen=entrada_id,
+                    ).values('id')
+                ).values('id'),
+                saldocierre=2,
+            ).exists()
+        )
+        self.assertGreaterEqual(
+            Documento.objects.filter(id_documentoorigen__in=[entrada_id, salida_id]).count(),
+            2,
+        )
+
+    def test_cash_and_bank_movements_update_balances_and_accounting(self):
+        caja_id = self._create_documento(movement_id=1, concepto_id=1)
+        self._add_detalle(
+            caja_id,
+            id_ubicacionfisica1=1,
+            subtotal=40,
+        )
+
+        self._scalar('SELECT aplicar_movimientocaja(%s)', [caja_id])
+
+        detalle_ubicacion = DetalleUbicacion.objects.get(id_ubicacionfisica=1)
+        self.assertEqual(detalle_ubicacion.saldoactual, 40)
+        self.assertTrue(Documento.objects.filter(id_documentoorigen=caja_id).exists())
+
+        banco_id = self._create_documento(movement_id=2, concepto_id=2)
+        self._add_detalle(
+            banco_id,
+            id_cuentabancaria2=1,
+            subtotal=30,
+        )
+
+        self._scalar('SELECT aplicar_movimientobanco(%s)', [banco_id])
+
+        cuenta = CuentaBancaria.objects.get(id=1)
+        self.assertEqual(cuenta.saldo, 70)
+        self.assertGreaterEqual(MovimientoContable.objects.count(), 2)
+
+    def test_bank_movement_rolls_back_when_balance_is_insufficient(self):
+        banco_id = self._create_documento(movement_id=2, concepto_id=2)
+        self._add_detalle(
+            banco_id,
+            id_cuentabancaria2=1,
+            subtotal=130,
+        )
+
+        with self.assertRaises(DatabaseError), transaction.atomic():
+            self._scalar('SELECT aplicar_movimientobanco(%s)', [banco_id])
+
+        self.assertEqual(CuentaBancaria.objects.get(id=1).saldo, 100)
+        self.assertFalse(Documento.objects.filter(id_documentoorigen=banco_id).exists())
+
+    def test_accounting_amounts_reorder_points_and_read_views_are_executable(self):
+        PerfilImpuesto.objects.create(
+            id=1,
+            nombreperfilimpuesto='IVA pruebas',
+            estatus='A',
+        )
+        MontoCalculado.objects.create(
+            id=1,
+            nombremontocalculado='IVA',
+            montofijo=0,
+            porcentajeoperacion=16,
+            causaimpuesto=True,
+            requiereautorizacion=False,
+            id_asientocontable=1,
+            tipo='I',
+            estatus='A',
+        )
+        PerfilimpuestoMontocalculado.objects.create(
+            id=1,
+            id_perfilimpuesto=1,
+            id_montocalculado=1,
+        )
+        RegmaestroContabilidad.objects.create(
+            id=1,
+            id_registromaestro=1,
+            id_perfilimpuesto=1,
+        )
+        RegmaestroInventario.objects.create(
+            id=1,
+            id_registromaestro=1,
+            id_presentacioninventario=1,
+            inventarioseguridad=10,
+            caducidad=30,
+            localidad='Almacen pruebas',
+        )
+        documento_id = self._create_documento(movement_id=2, concepto_id=2)
+        detalle = self._add_detalle(documento_id, subtotal=100)
+        self._add_extra(detalle, cantidad=30)
+
+        monto_detalle = self._scalar('SELECT calcular_montos_detalle(%s)', [detalle.id])
+        punto_reorden = self._scalar('SELECT calcular_puntoreorden(%s)', [1])
+
+        self.assertEqual(monto_detalle, 16)
+        self.assertEqual(MontoCalculadoDetalle.objects.get(id_detalledocumento=detalle.id).monto, 16)
+        self.assertEqual(punto_reorden, 17)
+        self.assertGreaterEqual(self._scalar('SELECT COUNT(*) FROM vw_movimientos_almacen'), 1)
+        self.assertGreaterEqual(self._scalar('SELECT COUNT(*) FROM vw_movimientos_banco'), 0)
+        self.assertGreaterEqual(
+            LibroContable.objects.filter(anno__isnull=False).count(),
+            1,
+        )
+        self.assertGreaterEqual(LibroSucursal.objects.count(), 1)
 
 
 class UFRepo_Validacion(LegacyFixtureMixin, TestCase):

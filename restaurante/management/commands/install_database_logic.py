@@ -43,6 +43,7 @@ class Command(BaseCommand):
             with connection.cursor() as cursor:
                 cursor.execute(sql)
 
-        self.stdout.write(
-            self.style.SUCCESS('Installed database logic from {0}'.format(sql_path))
-        )
+        if options['verbosity'] > 0:
+            self.stdout.write(
+                self.style.SUCCESS('Installed database logic from {0}'.format(sql_path))
+            )

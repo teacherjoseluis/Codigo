@@ -12,7 +12,7 @@ legacy unmanaged tables and `*_ID_seq` sequences from the model metadata:
 python3 manage.py migrate
 python3 manage.py bootstrap_legacy_schema
 python3 manage.py install_database_logic
-python3 manage.py seed_flow_folio_config
+python3 manage.py seed_database_logic_config
 ```
 
 Preview the bootstrap work without changing the database:
@@ -20,7 +20,7 @@ Preview the bootstrap work without changing the database:
 ```bash
 python3 manage.py bootstrap_legacy_schema --dry-run
 python3 manage.py install_database_logic --dry-run
-python3 manage.py seed_flow_folio_config --dry-run
+python3 manage.py seed_database_logic_config --dry-run
 ```
 
 Do not add a `restaurante/migrations/` directory unless the unmanaged legacy
@@ -51,6 +51,10 @@ Run `seed_flow_folio_config` after schema/bootstrap changes to create any
 missing `Clave_Folio` and `Numeracion_Folio` rows. In an empty development
 database, the command also creates a minimal default client/branch so folio
 generation has a valid `Sucursal_Sistema` context.
+Run `seed_database_logic_config` when you also need the minimal database logic
+runtime configuration: document movement catalogs, operational accounts,
+source document concepts, current accounting book/branch book rows, and the
+generated flow folio rows.
 
 ## Auth and permissions
 
