@@ -11,16 +11,40 @@ legacy unmanaged tables and `*_ID_seq` sequences from the model metadata:
 ```bash
 python3 manage.py migrate
 python3 manage.py bootstrap_legacy_schema
+python3 manage.py install_database_logic
 ```
 
 Preview the bootstrap work without changing the database:
 
 ```bash
 python3 manage.py bootstrap_legacy_schema --dry-run
+python3 manage.py install_database_logic --dry-run
 ```
 
 Do not add a `restaurante/migrations/` directory unless the unmanaged legacy
 schema strategy changes.
+
+## Stored procedure logic
+
+The repeatable PL/pgSQL implementation lives in
+`restaurante/sql/database_logic.sql`. Re-run `install_database_logic` after
+changes to that file; the script uses `CREATE OR REPLACE` for functions and
+views.
+
+The installed logic covers the first database-side workflow slice:
+
+- folio generation and document creation/closing;
+- document total recalculation;
+- inventory entry, exit, and transfer dispatch;
+- cash and bank movements;
+- accounting posting into branch accounting books;
+- calculated amount registration for detail tax profiles;
+- reorder point calculation;
+- read views for inventory, cash, bank, and accounting movements.
+
+The legacy schema must contain the supporting folio records for system flow
+documents (`Flujo_Almacen`, `Flujo_Caja`, `Flujo_Bancos`,
+`Flujo_Contable`) before apply procedures can create generated documents.
 
 ## Auth and permissions
 
