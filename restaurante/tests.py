@@ -1,9 +1,11 @@
 from django.contrib.auth import get_user_model
+from django.core.management import call_command
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import connection
 from django.test import TestCase
 from rest_framework.test import APIClient
 
+from restaurante.database_config import FLOW_FOLIO_CONFIG, ensure_flow_folio_config
 from restaurante.factory.RegMaestro_factory import RegMaestro
 from restaurante.models import (
     AsientoContable,
@@ -262,6 +264,82 @@ class LegacyFixtureMixin(object):
                     'SELECT setval(%s::regclass, %s, true)',
                     [sequence_name, value],
                 )
+
+
+class FlowFolioConfigEmptyDatabaseTests(TestCase):
+    def test_flow_folio_config_dry_run_reports_empty_database_bootstrap(self):
+        summary = ensure_flow_folio_config(dry_run=True)
+
+        self.assertEqual(summary['cliente_sistema'], 1)
+        self.assertEqual(summary['sucursal_sistema'], 1)
+        self.assertEqual(summary['clave_folio'], len(FLOW_FOLIO_CONFIG))
+        self.assertEqual(summary['numeracion_folio'], len(FLOW_FOLIO_CONFIG))
+        self.assertFalse(ClienteSistema.objects.exists())
+        self.assertFalse(SucursalSistema.objects.exists())
+        self.assertFalse(ClaveFolio.objects.exists())
+        self.assertFalse(NumeracionFolio.objects.exists())
+
+    def test_seed_flow_folio_config_can_bootstrap_empty_database(self):
+        call_command('seed_flow_folio_config', verbosity=0)
+
+        self.assertEqual(ClienteSistema.objects.count(), 1)
+        self.assertEqual(SucursalSistema.objects.count(), 1)
+        self.assertEqual(
+            ClaveFolio.objects.filter(
+                nombredocumento__in=[
+                    nombre_documento
+                    for nombre_documento, _clave_folio in FLOW_FOLIO_CONFIG
+                ]
+            ).count(),
+            len(FLOW_FOLIO_CONFIG),
+        )
+        self.assertEqual(NumeracionFolio.objects.count(), len(FLOW_FOLIO_CONFIG))
+
+
+class FlowFolioConfigTests(LegacyFixtureMixin, TestCase):
+    def test_seed_flow_folio_config_creates_required_flow_rows(self):
+        call_command('seed_flow_folio_config', verbosity=0)
+
+        for nombre_documento, clave_folio in FLOW_FOLIO_CONFIG:
+            folio = ClaveFolio.objects.get(
+                nombredocumento=nombre_documento,
+                id_clientesistema=1,
+            )
+            self.assertEqual(folio.clavefolio, clave_folio)
+            self.assertTrue(
+                NumeracionFolio.objects.filter(
+                    id_clavefolio=folio.id,
+                    id_sucursal_sistema=1,
+                ).exists()
+            )
+            self.assertTrue(
+                NumeracionFolio.objects.filter(
+                    id_clavefolio=folio.id,
+                    id_sucursal_sistema=2,
+                ).exists()
+            )
+
+    def test_seeded_flow_folios_support_database_folio_generation(self):
+        call_command('install_database_logic', verbosity=0)
+        call_command('seed_flow_folio_config', verbosity=0)
+
+        with connection.cursor() as cursor:
+            cursor.execute(
+                'SELECT folio, id_clave_folio, id_numeracion_folio '
+                'FROM generar_nuevofolio(%s, %s)',
+                ['Flujo_Almacen', 1],
+            )
+            folio, id_clave_folio, id_numeracion_folio = cursor.fetchone()
+
+        self.assertTrue(folio.startswith('FAL_CEN_1/'))
+        self.assertEqual(
+            ClaveFolio.objects.get(id=id_clave_folio).nombredocumento,
+            'Flujo_Almacen',
+        )
+        self.assertEqual(
+            NumeracionFolio.objects.get(id=id_numeracion_folio).numeroactual,
+            2,
+        )
 
 
 class UFRepo_Validacion(LegacyFixtureMixin, TestCase):
