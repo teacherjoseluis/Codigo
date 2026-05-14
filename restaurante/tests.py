@@ -14,6 +14,9 @@ from restaurante.models import (
     CatalogoClasificacion,
     ClaveFolio,
     ClienteSistema,
+    Comanda,
+    ComandaItem,
+    ConfiguracionComanda,
     CuentaBancaria,
     CuentaContable,
     DetalleUbicacion,
@@ -29,11 +32,15 @@ from restaurante.models import (
     MontoCalculadoDetalle,
     MovimientoContable,
     NumeracionFolio,
+    PagoCliente,
     PerfilImpuesto,
     PerfilimpuestoMontocalculado,
     PersonaFiscal,
     PersonafiscalProveedor,
+    PreparacionOrden,
+    PreparacionOrdenItem,
     Presentacion,
+    RecetaItem,
     RegmaestroCompra,
     RegmaestroContabilidad,
     RegmaestroFoto,
@@ -41,6 +48,7 @@ from restaurante.models import (
     RegmaestroPedimento,
     RegmaestroUbicacionfisica,
     RegmaestroVenta,
+    ReglaRuteoPreparacion,
     RegistroMaestro,
     SucursalSistema,
     TipoCuentaContable,
@@ -346,6 +354,24 @@ class FlowFolioConfigTests(LegacyFixtureMixin, TestCase):
         self.assertEqual(
             NumeracionFolio.objects.get(id=id_numeracion_folio).numeroactual,
             2,
+        )
+
+
+class ComandaFlowConfigTests(TestCase):
+    def test_seed_comanda_flow_config_bootstraps_minimal_demo_flow(self):
+        call_command('seed_comanda_flow_config', verbosity=0)
+
+        self.assertTrue(ConfiguracionComanda.objects.exists())
+        self.assertTrue(ReglaRuteoPreparacion.objects.exists())
+        self.assertTrue(RecetaItem.objects.exists())
+        self.assertTrue(
+            ClaveFolio.objects.filter(nombredocumento='Orden Comanda').exists()
+        )
+        self.assertTrue(
+            ClaveFolio.objects.filter(nombredocumento='Nota de Venta').exists()
+        )
+        self.assertTrue(
+            ClaveFolio.objects.filter(nombredocumento='Pago Cliente').exists()
         )
 
 
@@ -1246,5 +1272,212 @@ class TransactionalAPITests(LegacyFixtureMixin, TestCase):
             PersonafiscalProveedor.objects.filter(
                 id=proveedor_response.data['id'],
                 diascredito=30,
+            ).exists()
+        )
+
+
+class ComandaHighLevelAPITests(LegacyFixtureMixin, TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.user = get_user_model().objects.create_user(
+            username='waiter-api-user',
+            password='secret',
+        )
+        AuthUser_Sucursal.objects.create(id=301, user=self.user.id, sucursal=1)
+        self.client.force_authenticate(user=self.user)
+        self._seed_comanda_configuration()
+
+    def _seed_comanda_configuration(self):
+        ConfiguracionComanda.objects.create(
+            id=1,
+            id_sucursal=1,
+            inventario_habilitado=True,
+            inventario_validacion='warn',
+            crear_nota_venta_al_cerrar=True,
+            permitir_inventario_negativo=True,
+        )
+        RegistroMaestro.objects.create(
+            id=3,
+            nombre='Hamburguesa',
+            tipo='P',
+            id_clasificacion=1,
+            marca='Casa',
+            estatus='1',
+        )
+        RecetaItem.objects.create(
+            id=1,
+            id_producto=3,
+            id_ingrediente=1,
+            cantidad=2,
+            merma_porcentaje=0,
+            estatus='Activo',
+        )
+        ReglaRuteoPreparacion.objects.create(
+            id=1,
+            id_sucursal=1,
+            id_clasificacion=1,
+            id_registromaestro=None,
+            id_area_preparacion=1,
+            modo_salida='terminal',
+            estatus='Activo',
+        )
+        RegmaestroUbicacionfisica.objects.create(
+            id=2,
+            id_registromaestro=1,
+            id_ubicacionfisica=1,
+            existencias=10,
+        )
+
+    def test_waiter_order_preparation_delivery_close_and_payment_flow(self):
+        create_response = self.client.post(
+            '/api/v1/comandas/',
+            {
+                'id_sucursal': 1,
+                'id_mesa': 3,
+                'numero_comensales': 2,
+                'tipo_orden': 'venta',
+            },
+            format='json',
+        )
+
+        self.assertEqual(create_response.status_code, 201)
+        comanda_id = create_response.data['id']
+        documento_id = create_response.data['id_documento']
+        self.assertEqual(create_response.data['estatus'], 'Abierta')
+        self.assertTrue(Documento.objects.filter(id=documento_id).exists())
+
+        list_response = self.client.get('/api/v1/comandas/')
+        self.assertEqual(list_response.status_code, 200)
+        self.assertEqual(list_response.data[0]['id'], comanda_id)
+
+        item_response = self.client.post(
+            '/api/v1/comandas/{0}/items/'.format(comanda_id),
+            {
+                'id_registromaestro': 3,
+                'cantidad': '2.0000',
+                'precio_unitario': '150.0000',
+                'notas': 'Sin cebolla',
+            },
+            format='json',
+        )
+
+        self.assertEqual(item_response.status_code, 201)
+        item_id = item_response.data['item']['id']
+        self.assertEqual(item_response.data['item']['estatus'], 'Pendiente')
+        self.assertEqual(item_response.data['warnings'], [])
+        self.assertEqual(Documento.objects.get(id=documento_id).monto, 300)
+        self.assertTrue(
+            DetalleDocumento.objects.filter(
+                id_documento=documento_id,
+                id_registromaestro=3,
+                comentarios='Sin cebolla',
+            ).exists()
+        )
+        detalle_id = item_response.data['item']['id_detalledocumento']
+        self.assertTrue(
+            ExtradetalleDocumento.objects.filter(
+                id_detalledocumento=detalle_id,
+                cantidad=2,
+                costopreciototal=300,
+            ).exists()
+        )
+
+        send_response = self.client.post(
+            '/api/v1/comandas/{0}/enviar-a-preparacion/'.format(comanda_id),
+            format='json',
+        )
+
+        self.assertEqual(send_response.status_code, 200)
+        prep_order_id = send_response.data['ordenes'][0]['id']
+        self.assertEqual(Comanda.objects.get(id=comanda_id).estatus, 'En Proceso')
+        self.assertEqual(ComandaItem.objects.get(id=item_id).estatus, 'En Preparacion')
+        self.assertTrue(
+            PreparacionOrdenItem.objects.filter(
+                id_preparacionorden=prep_order_id,
+                id_comandaitem=item_id,
+            ).exists()
+        )
+
+        list_response = self.client.get('/api/v1/preparacion/ordenes/')
+        self.assertEqual(list_response.status_code, 200)
+        self.assertEqual(list_response.data[0]['id'], prep_order_id)
+
+        ready_response = self.client.post(
+            '/api/v1/preparacion/ordenes/{0}/items/{1}/lista/'.format(
+                prep_order_id,
+                item_id,
+            ),
+            format='json',
+        )
+        self.assertEqual(ready_response.status_code, 200)
+        self.assertEqual(PreparacionOrden.objects.get(id=prep_order_id).estatus, 'Completada')
+        self.assertEqual(ComandaItem.objects.get(id=item_id).estatus, 'Lista')
+        self.assertEqual(Comanda.objects.get(id=comanda_id).estatus, 'Lista')
+
+        deliver_response = self.client.post(
+            '/api/v1/comandas/{0}/items/{1}/entregar/'.format(comanda_id, item_id),
+            format='json',
+        )
+        self.assertEqual(deliver_response.status_code, 200)
+        self.assertEqual(ComandaItem.objects.get(id=item_id).estatus, 'Entregada')
+
+        close_response = self.client.post(
+            '/api/v1/comandas/{0}/cerrar/'.format(comanda_id),
+            format='json',
+        )
+        self.assertEqual(close_response.status_code, 200)
+        nota_venta_id = close_response.data['nota_venta']['id']
+        self.assertEqual(Comanda.objects.get(id=comanda_id).estatus, 'Cerrada')
+        self.assertEqual(Documento.objects.get(id=documento_id).estatus, 'Cerrado')
+        self.assertEqual(Documento.objects.get(id=nota_venta_id).estatus, 'Por Pagar')
+
+        payment_response = self.client.post(
+            '/api/v1/notas-venta/{0}/pagos/'.format(nota_venta_id),
+            {
+                'metodo_pago': 'efectivo',
+                'destino': 'caja',
+                'monto': '300.0000',
+            },
+            format='json',
+        )
+
+        self.assertEqual(payment_response.status_code, 201)
+        self.assertEqual(payment_response.data['nota_venta_estatus'], 'Pagada')
+        self.assertTrue(PagoCliente.objects.filter(id_nota_venta=nota_venta_id).exists())
+        self.assertEqual(Documento.objects.get(id=nota_venta_id).estatus, 'Pagada')
+
+    def test_inventory_block_mode_validates_ingredients_not_menu_item(self):
+        ConfiguracionComanda.objects.filter(id_sucursal=1).update(
+            inventario_validacion='block',
+        )
+        RegmaestroUbicacionfisica.objects.filter(
+            id_registromaestro=1,
+            id_ubicacionfisica=1,
+        ).update(existencias=1)
+        create_response = self.client.post(
+            '/api/v1/comandas/',
+            {
+                'id_sucursal': 1,
+                'id_mesa': 3,
+                'numero_comensales': 2,
+            },
+            format='json',
+        )
+
+        item_response = self.client.post(
+            '/api/v1/comandas/{0}/items/'.format(create_response.data['id']),
+            {
+                'id_registromaestro': 3,
+                'cantidad': '2.0000',
+                'precio_unitario': '150.0000',
+            },
+            format='json',
+        )
+
+        self.assertEqual(item_response.status_code, 400)
+        self.assertIn('Ingredient 1 requires', item_response.data['detail'])
+        self.assertFalse(
+            ComandaItem.objects.filter(
+                id_comanda=create_response.data['id'],
             ).exists()
         )

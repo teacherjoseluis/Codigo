@@ -159,6 +159,41 @@ Remaining deferred transactional work:
 - Deeper concurrency controls around folio reservation and stock movements once
   the frontend request patterns are known.
 
+### Phase 5: high-level comanda vertical slice
+
+The first configuration-backed high-level workflow models a waiter taking an
+order, routing line items to kitchen/bar preparation areas, marking items ready
+and delivered, creating a nota de venta, and receiving payment. These endpoints
+orchestrate lower-level `Documento`, `Detalle_Documento`, and
+`ExtraDetalle_Documento` persistence plus comanda-specific support tables.
+
+```text
+GET  /api/v1/comandas/abiertas/
+POST /api/v1/comandas/
+GET/PATCH /api/v1/comandas/{id}/
+POST /api/v1/comandas/{id}/items/
+POST /api/v1/comandas/{id}/enviar-a-preparacion/
+POST /api/v1/comandas/{id}/items/{item_id}/entregar/
+POST /api/v1/comandas/{id}/cerrar/
+
+GET  /api/v1/preparacion/ordenes/
+POST /api/v1/preparacion/ordenes/{id}/items/{item_id}/lista/
+
+POST /api/v1/notas-venta/{id}/pagos/
+```
+
+Minimal support tables for this slice:
+
+- `Configuracion_Comanda`: effective sucursal-level behavior for inventory
+  validation and automatic nota de venta creation.
+- `Regla_RuteoPreparacion`: item/category routing to preparation areas and
+  output modes.
+- `Receta_Item`: dish/beverage composition used to validate ingredient
+  availability.
+- `Comanda`, `Comanda_Item`, `Preparacion_Orden`,
+  `Preparacion_OrdenItem`, and `Pago_Cliente`: high-level workflow state that
+  does not fit cleanly in the legacy document tables.
+
 ## Implementation checklist for each endpoint group
 
 1. Define serializer input/output contracts.

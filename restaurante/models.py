@@ -670,6 +670,117 @@ class UsuarioSesion(models.Model):
         db_table = 'Usuario_Sesion'
 
 
+class ConfiguracionComanda(models.Model):
+    id = models.IntegerField(db_column='ID', primary_key=True)
+    id_sucursal = models.IntegerField(db_column='Id_Sucursal', blank=True, null=True)
+    inventario_habilitado = models.BooleanField(db_column='Inventario_Habilitado', blank=True, null=True)
+    inventario_validacion = models.CharField(db_column='Inventario_Validacion', max_length=20, blank=True)
+    crear_nota_venta_al_cerrar = models.BooleanField(db_column='Crear_NotaVenta_AlCerrar', blank=True, null=True)
+    permitir_inventario_negativo = models.BooleanField(db_column='Permitir_Inventario_Negativo', blank=True, null=True)
+
+    class Meta:
+        managed = False
+        db_table = 'Configuracion_Comanda'
+
+
+class ReglaRuteoPreparacion(models.Model):
+    id = models.IntegerField(db_column='ID', primary_key=True)
+    id_sucursal = models.IntegerField(db_column='Id_Sucursal', blank=True, null=True)
+    id_clasificacion = models.IntegerField(db_column='Id_Clasificacion', blank=True, null=True)
+    id_registromaestro = models.IntegerField(db_column='Id_RegistroMaestro', blank=True, null=True)
+    id_area_preparacion = models.IntegerField(db_column='Id_AreaPreparacion', blank=True, null=True)
+    modo_salida = models.CharField(db_column='Modo_Salida', max_length=20, blank=True)
+    estatus = models.CharField(db_column='Estatus', max_length=20, blank=True)
+
+    class Meta:
+        managed = False
+        db_table = 'Regla_RuteoPreparacion'
+
+
+class RecetaItem(models.Model):
+    id = models.IntegerField(db_column='ID', primary_key=True)
+    id_producto = models.IntegerField(db_column='Id_Producto', blank=True, null=True)
+    id_ingrediente = models.IntegerField(db_column='Id_Ingrediente', blank=True, null=True)
+    cantidad = models.DecimalField(db_column='Cantidad', max_digits=19, decimal_places=4, blank=True, null=True)
+    merma_porcentaje = models.DecimalField(db_column='Merma_Porcentaje', max_digits=8, decimal_places=4, blank=True, null=True)
+    estatus = models.CharField(db_column='Estatus', max_length=20, blank=True)
+
+    class Meta:
+        managed = False
+        db_table = 'Receta_Item'
+
+
+class Comanda(models.Model):
+    id = models.IntegerField(db_column='ID', primary_key=True)
+    id_documento = models.IntegerField(db_column='Id_Documento', blank=True, null=True)
+    id_sucursal = models.IntegerField(db_column='Id_Sucursal', blank=True, null=True)
+    id_mesa = models.IntegerField(db_column='Id_Mesa', blank=True, null=True)
+    id_mesero = models.IntegerField(db_column='Id_Mesero', blank=True, null=True)
+    numero_comensales = models.IntegerField(db_column='Numero_Comensales', blank=True, null=True)
+    tipo_orden = models.CharField(db_column='Tipo_Orden', max_length=20, blank=True)
+    estatus = models.CharField(db_column='Estatus', max_length=20, blank=True)
+
+    class Meta:
+        managed = False
+        db_table = 'Comanda'
+
+
+class ComandaItem(models.Model):
+    id = models.IntegerField(db_column='ID', primary_key=True)
+    id_comanda = models.IntegerField(db_column='Id_Comanda', blank=True, null=True)
+    id_detalledocumento = models.IntegerField(db_column='Id_DetalleDocumento', blank=True, null=True)
+    id_registromaestro = models.IntegerField(db_column='Id_RegistroMaestro', blank=True, null=True)
+    id_area_preparacion = models.IntegerField(db_column='Id_AreaPreparacion', blank=True, null=True)
+    cantidad = models.DecimalField(db_column='Cantidad', max_digits=19, decimal_places=4, blank=True, null=True)
+    precio_unitario = models.DecimalField(db_column='Precio_Unitario', max_digits=19, decimal_places=4, blank=True, null=True)
+    precio_total = models.DecimalField(db_column='Precio_Total', max_digits=19, decimal_places=4, blank=True, null=True)
+    notas = models.TextField(db_column='Notas', blank=True)
+    estatus = models.CharField(db_column='Estatus', max_length=20, blank=True)
+
+    class Meta:
+        managed = False
+        db_table = 'Comanda_Item'
+
+
+class PreparacionOrden(models.Model):
+    id = models.IntegerField(db_column='ID', primary_key=True)
+    id_comanda = models.IntegerField(db_column='Id_Comanda', blank=True, null=True)
+    id_area_preparacion = models.IntegerField(db_column='Id_AreaPreparacion', blank=True, null=True)
+    modo_salida = models.CharField(db_column='Modo_Salida', max_length=20, blank=True)
+    estatus = models.CharField(db_column='Estatus', max_length=20, blank=True)
+    fecha_hora_apertura = models.DateTimeField(db_column='FechaHora_Apertura', blank=True, null=True)
+    fecha_hora_cierre = models.DateTimeField(db_column='FechaHora_Cierre', blank=True, null=True)
+
+    class Meta:
+        managed = False
+        db_table = 'Preparacion_Orden'
+
+
+class PreparacionOrdenItem(models.Model):
+    id = models.IntegerField(db_column='ID', primary_key=True)
+    id_preparacionorden = models.IntegerField(db_column='Id_PreparacionOrden', blank=True, null=True)
+    id_comandaitem = models.IntegerField(db_column='Id_ComandaItem', blank=True, null=True)
+    estatus = models.CharField(db_column='Estatus', max_length=20, blank=True)
+
+    class Meta:
+        managed = False
+        db_table = 'Preparacion_OrdenItem'
+
+
+class PagoCliente(models.Model):
+    id = models.IntegerField(db_column='ID', primary_key=True)
+    id_nota_venta = models.IntegerField(db_column='Id_NotaVenta', blank=True, null=True)
+    id_documento_pago = models.IntegerField(db_column='Id_DocumentoPago', blank=True, null=True)
+    metodo_pago = models.CharField(db_column='Metodo_Pago', max_length=30, blank=True)
+    destino = models.CharField(db_column='Destino', max_length=20, blank=True)
+    monto = models.DecimalField(db_column='Monto', max_digits=19, decimal_places=4, blank=True, null=True)
+    estatus = models.CharField(db_column='Estatus', max_length=20, blank=True)
+
+    class Meta:
+        managed = False
+        db_table = 'Pago_Cliente'
+
+
 class AuthGroup(models.Model):
     id = models.IntegerField(primary_key=True)  # AutoField?
     name = models.CharField(unique=True, max_length=80)

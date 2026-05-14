@@ -10,6 +10,13 @@ from restaurante.api.serializers import (
     CatalogoClasificacionSerializer,
     ClaveFolioSerializer,
     ClienteSistemaSerializer,
+    ComandaCreateSerializer,
+    ComandaItemCreateSerializer,
+    ComandaItemCreateOutputSerializer,
+    ComandaItemOutputSerializer,
+    ComandaOutputSerializer,
+    ComandaPaymentSerializer,
+    ComandaUpdateSerializer,
     CuentaContableSerializer,
     DetalleDocumentoSerializer,
     DocumentoAsientoSerializer,
@@ -21,7 +28,10 @@ from restaurante.api.serializers import (
     NumeracionFolioSerializer,
     PersonaFiscalSerializer,
     PersonafiscalProveedorSerializer,
+    NotaVentaPaymentOutputSerializer,
     PresentacionSerializer,
+    PreparacionOrdenListOutputSerializer,
+    PreparacionOrdenOutputSerializer,
     RegMaestroCompraSerializer,
     RegMaestroContabilidadSerializer,
     RegMaestroFotoSerializer,
@@ -34,12 +44,14 @@ from restaurante.api.serializers import (
     TipoCuentaContableSerializer,
     UnidadMedidaSerializer,
 )
+from restaurante.api import services as operation_services
 from restaurante.factory.RegMaestro_factory import RegMaestro
 from restaurante.models import (
     AsientoContable,
     CatalogoClasificacion,
     ClaveFolio,
     ClienteSistema,
+    Comanda,
     CuentaContable,
     DetalleDocumento,
     Documento,
@@ -475,3 +487,137 @@ class CuentaContableDetailAPIView(generics.RetrieveUpdateAPIView):
     serializer_class = CuentaContableSerializer
     queryset = CuentaContable.objects.order_by('id')
     http_method_names = ['get', 'patch', 'head', 'options']
+
+
+class ComandaAbiertaListAPIView(generics.GenericAPIView):
+    serializer_class = ComandaOutputSerializer
+
+    def get(self, request):
+        comandas = Comanda.objects.filter(
+            estatus__in=['Abierta', 'En Proceso', 'Lista'],
+        ).order_by('id')
+        data = [
+            operation_services._serialize_comanda(comanda)
+            for comanda in comandas
+        ]
+        return Response(self.get_serializer(data, many=True).data)
+
+
+class ComandaListCreateAPIView(generics.GenericAPIView):
+    serializer_class = ComandaCreateSerializer
+
+    def get(self, request):
+        comandas = Comanda.objects.order_by('id')
+        data = [
+            operation_services._serialize_comanda(comanda)
+            for comanda in comandas
+        ]
+        return Response(ComandaOutputSerializer(data, many=True).data)
+
+    def post(self, request):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = operation_services.create_comanda(
+            serializer.validated_data,
+            request.user,
+        )
+        return Response(
+            ComandaOutputSerializer(data).data,
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class ComandaDetailAPIView(generics.GenericAPIView):
+    serializer_class = ComandaUpdateSerializer
+
+    def get(self, request, pk):
+        comanda = generics.get_object_or_404(Comanda.objects.all(), id=pk)
+        data = operation_services._serialize_comanda(comanda)
+        return Response(ComandaOutputSerializer(data).data)
+
+    def patch(self, request, pk):
+        comanda = generics.get_object_or_404(Comanda.objects.all(), id=pk)
+        serializer = self.get_serializer(data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        update_fields = []
+        for field, value in serializer.validated_data.items():
+            setattr(comanda, field, value)
+            update_fields.append(field)
+        if update_fields:
+            comanda.save(update_fields=update_fields)
+        data = operation_services._serialize_comanda(comanda)
+        return Response(ComandaOutputSerializer(data).data)
+
+
+class ComandaItemCreateAPIView(generics.GenericAPIView):
+    serializer_class = ComandaItemCreateSerializer
+
+    def post(self, request, pk):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = operation_services.add_comanda_item(
+            pk,
+            serializer.validated_data,
+        )
+        return Response(
+            ComandaItemCreateOutputSerializer(data).data,
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class ComandaEnviarPreparacionAPIView(generics.GenericAPIView):
+    serializer_class = PreparacionOrdenListOutputSerializer
+
+    def post(self, request, pk):
+        data = operation_services.send_comanda_to_preparacion(pk)
+        return Response(self.get_serializer({'ordenes': data}).data)
+
+
+class PreparacionOrdenListAPIView(generics.GenericAPIView):
+    serializer_class = PreparacionOrdenOutputSerializer
+
+    def get(self, request):
+        data = operation_services.list_preparacion_ordenes(
+            area_id=request.query_params.get('area_id'),
+            estatus=request.query_params.get('estatus'),
+        )
+        return Response(self.get_serializer(data, many=True).data)
+
+
+class PreparacionOrdenItemListaAPIView(generics.GenericAPIView):
+    serializer_class = PreparacionOrdenOutputSerializer
+
+    def post(self, request, pk, item_id):
+        data = operation_services.complete_preparacion_item(pk, item_id)
+        return Response(self.get_serializer(data).data)
+
+
+class ComandaItemEntregarAPIView(generics.GenericAPIView):
+    serializer_class = ComandaItemOutputSerializer
+
+    def post(self, request, pk, item_id):
+        data = operation_services.deliver_comanda_item(pk, item_id)
+        return Response(self.get_serializer(data).data)
+
+
+class ComandaCerrarAPIView(generics.GenericAPIView):
+    def post(self, request, pk):
+        data = operation_services.close_comanda(pk, request.user)
+        return Response(data)
+
+
+class NotaVentaPagoAPIView(generics.GenericAPIView):
+    serializer_class = ComandaPaymentSerializer
+
+    def post(self, request, pk):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = operation_services.register_nota_venta_payment(
+            pk,
+            serializer.validated_data,
+            request.user,
+        )
+        return Response(
+            NotaVentaPaymentOutputSerializer(data).data,
+            status=status.HTTP_201_CREATED,
+        )

@@ -533,3 +533,94 @@ class DocumentoSerializer(LegacyCreateModelSerializer):
             context=self.context,
         ).data
         return data
+
+
+class ComandaCreateSerializer(serializers.Serializer):
+    id_sucursal = serializers.IntegerField(required=False, allow_null=True)
+    id_mesa = serializers.IntegerField()
+    id_mesero = serializers.IntegerField(required=False, allow_null=True)
+    numero_comensales = serializers.IntegerField(required=False, min_value=1, default=1)
+    tipo_orden = serializers.CharField(required=False, allow_blank=True, default='venta')
+
+
+class ComandaUpdateSerializer(serializers.Serializer):
+    numero_comensales = serializers.IntegerField(required=False, min_value=1)
+    tipo_orden = serializers.CharField(required=False, allow_blank=True)
+    estatus = serializers.CharField(required=False, allow_blank=True)
+
+
+class ComandaItemCreateSerializer(serializers.Serializer):
+    id_registromaestro = serializers.IntegerField()
+    cantidad = serializers.DecimalField(max_digits=19, decimal_places=4, min_value=0)
+    precio_unitario = serializers.DecimalField(max_digits=19, decimal_places=4, min_value=0)
+    notas = serializers.CharField(required=False, allow_blank=True, default='')
+
+
+class ComandaPaymentSerializer(serializers.Serializer):
+    metodo_pago = serializers.CharField(required=False, allow_blank=True, default='efectivo')
+    destino = serializers.CharField(required=False, allow_blank=True)
+    monto = serializers.DecimalField(max_digits=19, decimal_places=4, min_value=0)
+
+
+class ComandaItemOutputSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    id_comanda = serializers.IntegerField()
+    id_detalledocumento = serializers.IntegerField()
+    id_registromaestro = serializers.IntegerField()
+    id_area_preparacion = serializers.IntegerField(allow_null=True)
+    cantidad = serializers.CharField()
+    precio_unitario = serializers.CharField()
+    precio_total = serializers.CharField()
+    notas = serializers.CharField(allow_blank=True)
+    estatus = serializers.CharField()
+
+
+class ComandaOutputSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    id_documento = serializers.IntegerField()
+    folio = serializers.CharField(allow_blank=True)
+    id_sucursal = serializers.IntegerField()
+    id_mesa = serializers.IntegerField()
+    id_mesero = serializers.IntegerField(allow_null=True)
+    numero_comensales = serializers.IntegerField()
+    tipo_orden = serializers.CharField(allow_blank=True)
+    estatus = serializers.CharField()
+    monto = serializers.IntegerField(allow_null=True)
+    items = ComandaItemOutputSerializer(many=True)
+
+
+class ComandaItemCreateOutputSerializer(serializers.Serializer):
+    item = ComandaItemOutputSerializer()
+    warnings = serializers.ListField(child=serializers.DictField(), required=False)
+
+
+class PreparacionOrdenItemOutputSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    id_comandaitem = serializers.IntegerField()
+    estatus = serializers.CharField()
+
+
+class PreparacionOrdenOutputSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    id_comanda = serializers.IntegerField()
+    id_area_preparacion = serializers.IntegerField(allow_null=True)
+    modo_salida = serializers.CharField(allow_blank=True)
+    estatus = serializers.CharField()
+    fecha_hora_apertura = serializers.DateTimeField(allow_null=True)
+    fecha_hora_cierre = serializers.DateTimeField(allow_null=True)
+    items = PreparacionOrdenItemOutputSerializer(many=True)
+
+
+class PreparacionOrdenListOutputSerializer(serializers.Serializer):
+    ordenes = PreparacionOrdenOutputSerializer(many=True)
+
+
+class NotaVentaPaymentOutputSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    id_nota_venta = serializers.IntegerField()
+    id_documento_pago = serializers.IntegerField()
+    metodo_pago = serializers.CharField()
+    destino = serializers.CharField()
+    monto = serializers.CharField()
+    estatus = serializers.CharField()
+    nota_venta_estatus = serializers.CharField()

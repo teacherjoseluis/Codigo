@@ -207,4 +207,54 @@ urlpatterns = [
         views.CuentaContableDetailAPIView.as_view(),
         name='cuenta-contable-detail',
     ),
+    path(
+        'comandas/abiertas/',
+        views.ComandaAbiertaListAPIView.as_view(),
+        name='comanda-abierta-list',
+    ),
+    path(
+        'comandas/',
+        views.ComandaListCreateAPIView.as_view(),
+        name='comanda-list-create',
+    ),
+    path(
+        'comandas/<int:pk>/',
+        views.ComandaDetailAPIView.as_view(),
+        name='comanda-detail',
+    ),
+    path(
+        'comandas/<int:pk>/items/',
+        views.ComandaItemCreateAPIView.as_view(),
+        name='comanda-item-create',
+    ),
+    path(
+        'comandas/<int:pk>/enviar-a-preparacion/',
+        views.ComandaEnviarPreparacionAPIView.as_view(),
+        name='comanda-enviar-preparacion',
+    ),
+    path(
+        'comandas/<int:pk>/items/<int:item_id>/entregar/',
+        views.ComandaItemEntregarAPIView.as_view(),
+        name='comanda-item-entregar',
+    ),
+    path(
+        'comandas/<int:pk>/cerrar/',
+        views.ComandaCerrarAPIView.as_view(),
+        name='comanda-cerrar',
+    ),
+    path(
+        'preparacion/ordenes/',
+        views.PreparacionOrdenListAPIView.as_view(),
+        name='preparacion-orden-list',
+    ),
+    path(
+        'preparacion/ordenes/<int:pk>/items/<int:item_id>/lista/',
+        views.PreparacionOrdenItemListaAPIView.as_view(),
+        name='preparacion-orden-item-lista',
+    ),
+    path(
+        'notas-venta/<int:pk>/pagos/',
+        views.NotaVentaPagoAPIView.as_view(),
+        name='nota-venta-pago',
+    ),
 ]
