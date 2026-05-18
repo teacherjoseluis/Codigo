@@ -171,7 +171,7 @@ orchestrate lower-level `Documento`, `Detalle_Documento`, and
 GET  /api/v1/comandas/abiertas/
 POST /api/v1/comandas/
 GET/PATCH /api/v1/comandas/{id}/
-POST /api/v1/comandas/{id}/items/
+GET/POST /api/v1/comandas/{id}/items/
 POST /api/v1/comandas/{id}/enviar-a-preparacion/
 POST /api/v1/comandas/{id}/items/{item_id}/entregar/
 POST /api/v1/comandas/{id}/cerrar/

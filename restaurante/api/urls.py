@@ -1,4 +1,5 @@
 from django.urls import path
+from rest_framework.renderers import JSONOpenAPIRenderer
 from rest_framework.schemas import get_schema_view
 
 from restaurante.api import views
@@ -13,6 +14,7 @@ urlpatterns = [
             title='Restaurante API',
             description='Versioned API contract for restaurant middleware endpoints.',
             version='1.0.0',
+            renderer_classes=[JSONOpenAPIRenderer],
         ),
         name='openapi-schema',
     ),

@@ -15,6 +15,7 @@ from restaurante.api.serializers import (
     ComandaItemCreateOutputSerializer,
     ComandaItemOutputSerializer,
     ComandaOutputSerializer,
+    ComandaCloseOutputSerializer,
     ComandaPaymentSerializer,
     ComandaUpdateSerializer,
     CuentaContableSerializer,
@@ -552,6 +553,10 @@ class ComandaDetailAPIView(generics.GenericAPIView):
 class ComandaItemCreateAPIView(generics.GenericAPIView):
     serializer_class = ComandaItemCreateSerializer
 
+    def get(self, request, pk):
+        data = operation_services.list_comanda_items(pk)
+        return Response(ComandaItemOutputSerializer(data, many=True).data)
+
     def post(self, request, pk):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -601,9 +606,11 @@ class ComandaItemEntregarAPIView(generics.GenericAPIView):
 
 
 class ComandaCerrarAPIView(generics.GenericAPIView):
+    serializer_class = ComandaCloseOutputSerializer
+
     def post(self, request, pk):
         data = operation_services.close_comanda(pk, request.user)
-        return Response(data)
+        return Response(self.get_serializer(data).data)
 
 
 class NotaVentaPagoAPIView(generics.GenericAPIView):

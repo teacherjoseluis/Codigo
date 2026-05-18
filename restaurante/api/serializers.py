@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from rest_framework import serializers
 
 from restaurante.api.permissions import require_ubicacion_scope
@@ -551,7 +553,11 @@ class ComandaUpdateSerializer(serializers.Serializer):
 
 class ComandaItemCreateSerializer(serializers.Serializer):
     id_registromaestro = serializers.IntegerField()
-    cantidad = serializers.DecimalField(max_digits=19, decimal_places=4, min_value=0)
+    cantidad = serializers.DecimalField(
+        max_digits=19,
+        decimal_places=4,
+        min_value=Decimal('0.0001'),
+    )
     precio_unitario = serializers.DecimalField(max_digits=19, decimal_places=4, min_value=0)
     notas = serializers.CharField(required=False, allow_blank=True, default='')
 
@@ -613,6 +619,18 @@ class PreparacionOrdenOutputSerializer(serializers.Serializer):
 
 class PreparacionOrdenListOutputSerializer(serializers.Serializer):
     ordenes = PreparacionOrdenOutputSerializer(many=True)
+
+
+class NotaVentaSummarySerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    folio = serializers.CharField(allow_blank=True)
+    estatus = serializers.CharField()
+    monto = serializers.IntegerField(allow_null=True)
+
+
+class ComandaCloseOutputSerializer(serializers.Serializer):
+    comanda = ComandaOutputSerializer()
+    nota_venta = NotaVentaSummarySerializer(allow_null=True)
 
 
 class NotaVentaPaymentOutputSerializer(serializers.Serializer):

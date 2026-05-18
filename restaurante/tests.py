@@ -785,6 +785,33 @@ class APISkeletonTests(LegacyFixtureMixin, TestCase):
         response = self.client.get('/api/v1/sucursales/')
 
         self.assertIn(response.status_code, (401, 403))
+        self.assertEqual(response['Content-Type'], 'application/json')
+        self.assertIn('detail', response.data)
+        self.assertIn('code', response.data)
+
+    def test_api_errors_are_json_even_when_request_accepts_html(self):
+        response = self.client.get(
+            '/api/v1/sucursales/',
+            HTTP_ACCEPT='text/html',
+        )
+
+        self.assertIn(response.status_code, (401, 403))
+        self.assertEqual(response['Content-Type'], 'application/json')
+        self.assertIn('detail', response.data)
+        self.assertIn('code', response.data)
+
+    def test_unmatched_api_route_returns_json_error(self):
+        response = self.client.get(
+            '/api/v1/does-not-exist/',
+            HTTP_X_REQUEST_ID='missing-route-id',
+            HTTP_ACCEPT='text/html',
+        )
+
+        self.assertEqual(response.status_code, 404)
+        self.assertEqual(response['Content-Type'], 'application/json')
+        self.assertEqual(response.json()['code'], 'not_found')
+        self.assertEqual(response.json()['request_id'], 'missing-route-id')
+        self.assertEqual(response['X-Request-ID'], 'missing-route-id')
 
     def test_sucursal_list_and_detail_endpoints(self):
         self.client.force_authenticate(user=self.user)
@@ -1350,6 +1377,13 @@ class ComandaHighLevelAPITests(LegacyFixtureMixin, TestCase):
         self.assertEqual(list_response.status_code, 200)
         self.assertEqual(list_response.data[0]['id'], comanda_id)
 
+        empty_items_response = self.client.get(
+            '/api/v1/comandas/{0}/items/'.format(comanda_id)
+        )
+
+        self.assertEqual(empty_items_response.status_code, 200)
+        self.assertEqual(empty_items_response.data, [])
+
         item_response = self.client.post(
             '/api/v1/comandas/{0}/items/'.format(comanda_id),
             {
@@ -1381,6 +1415,15 @@ class ComandaHighLevelAPITests(LegacyFixtureMixin, TestCase):
                 costopreciototal=300,
             ).exists()
         )
+
+        items_response = self.client.get(
+            '/api/v1/comandas/{0}/items/'.format(comanda_id)
+        )
+
+        self.assertEqual(items_response.status_code, 200)
+        self.assertEqual(len(items_response.data), 1)
+        self.assertEqual(items_response.data[0]['id'], item_id)
+        self.assertEqual(items_response.data[0]['precio_total'], '300.0000')
 
         send_response = self.client.post(
             '/api/v1/comandas/{0}/enviar-a-preparacion/'.format(comanda_id),
@@ -1481,3 +1524,28 @@ class ComandaHighLevelAPITests(LegacyFixtureMixin, TestCase):
                 id_comanda=create_response.data['id'],
             ).exists()
         )
+
+    def test_comanda_item_requires_positive_quantity(self):
+        create_response = self.client.post(
+            '/api/v1/comandas/',
+            {
+                'id_sucursal': 1,
+                'id_mesa': 3,
+                'numero_comensales': 2,
+            },
+            format='json',
+        )
+
+        item_response = self.client.post(
+            '/api/v1/comandas/{0}/items/'.format(create_response.data['id']),
+            {
+                'id_registromaestro': 3,
+                'cantidad': '0.0000',
+                'precio_unitario': '150.0000',
+            },
+            format='json',
+        )
+
+        self.assertEqual(item_response.status_code, 400)
+        self.assertEqual(item_response.data['code'], 'validation_error')
+        self.assertIn('cantidad', item_response.data['errors'])

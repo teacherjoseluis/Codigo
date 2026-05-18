@@ -305,6 +305,14 @@ def _serialize_comanda_item(item):
     }
 
 
+def list_comanda_items(comanda_id):
+    Comanda.objects.get(id=comanda_id)
+    return [
+        _serialize_comanda_item(item)
+        for item in ComandaItem.objects.filter(id_comanda=comanda_id).order_by('id')
+    ]
+
+
 def _serialize_preparacion(orden):
     items = PreparacionOrdenItem.objects.filter(
         id_preparacionorden=orden.id,
