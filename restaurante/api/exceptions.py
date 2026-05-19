@@ -10,6 +10,13 @@ from rest_framework.views import exception_handler
 logger = logging.getLogger(__name__)
 
 
+class DomainValidationError(ValueError):
+    def __init__(self, detail, errors=None):
+        super().__init__(detail)
+        self.detail = detail
+        self.errors = errors
+
+
 def _request_id(context):
     request = context.get('request') if context else None
     return getattr(request, 'request_id', None)
@@ -40,6 +47,17 @@ def domain_exception_handler(exc, context):
         return Response(
             _error_payload(str(exc) or 'Resource not found.', 'not_found', context),
             status=status.HTTP_404_NOT_FOUND,
+        )
+
+    if isinstance(exc, DomainValidationError):
+        return Response(
+            _error_payload(
+                exc.detail or 'Invalid request.',
+                'invalid_request',
+                context,
+                exc.errors,
+            ),
+            status=status.HTTP_400_BAD_REQUEST,
         )
 
     if isinstance(exc, ValueError):

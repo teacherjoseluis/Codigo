@@ -565,7 +565,13 @@ class ComandaItemCreateSerializer(serializers.Serializer):
 class ComandaPaymentSerializer(serializers.Serializer):
     metodo_pago = serializers.CharField(required=False, allow_blank=True, default='efectivo')
     destino = serializers.CharField(required=False, allow_blank=True)
-    monto = serializers.DecimalField(max_digits=19, decimal_places=4, min_value=0)
+    monto = serializers.DecimalField(
+        max_digits=19,
+        decimal_places=4,
+        min_value=Decimal('0.0001'),
+    )
+    id_caja = serializers.IntegerField(required=False, allow_null=True)
+    id_cuenta_bancaria = serializers.IntegerField(required=False, allow_null=True)
 
 
 class ComandaItemOutputSerializer(serializers.Serializer):
@@ -628,9 +634,18 @@ class NotaVentaSummarySerializer(serializers.Serializer):
     monto = serializers.IntegerField(allow_null=True)
 
 
+class InventarioMovimientoOutputSerializer(serializers.Serializer):
+    id_registromaestro = serializers.IntegerField()
+    id_area_preparacion = serializers.IntegerField(allow_null=True)
+    cantidad = serializers.IntegerField()
+    existencias_antes = serializers.IntegerField()
+    existencias_despues = serializers.IntegerField()
+
+
 class ComandaCloseOutputSerializer(serializers.Serializer):
     comanda = ComandaOutputSerializer()
     nota_venta = NotaVentaSummarySerializer(allow_null=True)
+    inventario = InventarioMovimientoOutputSerializer(many=True)
 
 
 class NotaVentaPaymentOutputSerializer(serializers.Serializer):
@@ -642,3 +657,6 @@ class NotaVentaPaymentOutputSerializer(serializers.Serializer):
     monto = serializers.CharField()
     estatus = serializers.CharField()
     nota_venta_estatus = serializers.CharField()
+    saldo_pagado = serializers.IntegerField()
+    saldo_pendiente = serializers.IntegerField()
+    movimiento = serializers.DictField()

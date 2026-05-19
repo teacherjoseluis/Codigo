@@ -5,11 +5,14 @@ from django.db import connection, transaction
 from django.db.models import Max
 from django.utils import timezone
 
+from restaurante.api.exceptions import DomainValidationError
 from restaurante.models import (
     ClaveFolio,
     Comanda,
     ComandaItem,
     ConfiguracionComanda,
+    CuentaBancaria,
+    DetalleUbicacion,
     DetalleDocumento,
     Documento,
     DocumentoConcepto,
@@ -437,6 +440,9 @@ def _recalculate_comanda_total(comanda):
 @transaction.atomic
 def send_comanda_to_preparacion(comanda_id):
     comanda = Comanda.objects.get(id=comanda_id)
+    if comanda.estatus not in ('Abierta', 'En Proceso'):
+        raise ValueError('Comanda {0} is not editable for preparation.'.format(comanda_id))
+
     pending_items = list(
         ComandaItem.objects.filter(
             id_comanda=comanda.id,
@@ -531,21 +537,91 @@ def _refresh_comanda_ready_status(comanda_id):
     return comanda
 
 
+def _consume_comanda_inventory(comanda, config):
+    if not config.inventario_habilitado:
+        return []
+
+    movements = []
+    items = ComandaItem.objects.filter(id_comanda=comanda.id).exclude(
+        estatus='Cancelada',
+    )
+    for item in items:
+        requirements = _ingredient_requirements(item.id_registromaestro, item.cantidad)
+        for requirement in requirements:
+            ingredient_id = requirement['id_ingrediente']
+            area_id = item.id_area_preparacion
+            quantity = _money_to_int(requirement['cantidad_requerida'])
+            stock = RegmaestroUbicacionfisica.objects.filter(
+                id_registromaestro=ingredient_id,
+                id_ubicacionfisica=area_id,
+            ).select_for_update().first()
+            available = stock.existencias if stock else 0
+            remaining = available - quantity
+            if remaining < 0 and not config.permitir_inventario_negativo:
+                raise ValueError(
+                    'Ingredient {0} requires {1} units but only {2} are available.'
+                    .format(ingredient_id, quantity, available)
+                )
+            if stock is None:
+                stock = create_legacy_instance(
+                    RegmaestroUbicacionfisica,
+                    id_registromaestro=ingredient_id,
+                    id_ubicacionfisica=area_id,
+                    existencias=0,
+                )
+            stock.existencias = remaining
+            stock.save(update_fields=['existencias'])
+            movements.append(
+                {
+                    'id_registromaestro': ingredient_id,
+                    'id_area_preparacion': area_id,
+                    'cantidad': quantity,
+                    'existencias_antes': available,
+                    'existencias_despues': remaining,
+                }
+            )
+    return movements
+
+
 @transaction.atomic
 def close_comanda(comanda_id, user):
     comanda = Comanda.objects.get(id=comanda_id)
+    if comanda.estatus in ('Cerrada', 'Cancelada'):
+        raise ValueError('Comanda {0} is already {1}.'.format(comanda_id, comanda.estatus))
+
+    active_items = ComandaItem.objects.filter(id_comanda=comanda.id).exclude(
+        estatus='Cancelada',
+    )
+    if not active_items.exists():
+        raise ValueError('Comanda {0} has no items to close.'.format(comanda_id))
+
     open_items = ComandaItem.objects.filter(id_comanda=comanda.id).exclude(
         estatus__in=['Lista', 'Entregada', 'Cancelada'],
     )
     if open_items.exists():
-        raise ValueError('Comanda has items that are not ready yet.')
+        raise DomainValidationError(
+            'Comanda has items that are not ready yet.',
+            errors={
+                'blocking_items': [
+                    _serialize_comanda_item(item)
+                    for item in open_items.order_by('id')
+                ],
+                'allowed_item_statuses': ['Lista', 'Entregada', 'Cancelada'],
+                'next_steps': [
+                    'Complete preparation with POST /api/v1/preparacion/ordenes/{orden_id}/items/{item_id}/lista/.',
+                    'Optionally deliver ready items with POST /api/v1/comandas/{comanda_id}/items/{item_id}/entregar/.',
+                    'Then retry POST /api/v1/comandas/{comanda_id}/cerrar/.',
+                ],
+            },
+        )
 
+    config = _get_runtime_config(comanda.id_sucursal)
+    inventory_movements = _consume_comanda_inventory(comanda, config)
     total = _recalculate_comanda_total(comanda)
     Documento.objects.filter(id=comanda.id_documento).update(estatus='Cerrado')
     comanda.estatus = 'Cerrada'
     comanda.save(update_fields=['estatus'])
 
-    config = _get_runtime_config(comanda.id_sucursal)
     nota = None
     if config.crear_nota_venta_al_cerrar:
         nota = _new_documento(
@@ -567,6 +643,59 @@ def close_comanda(comanda_id, user):
             'estatus': nota.estatus,
             'monto': nota.monto,
         } if nota else None,
+        'inventario': inventory_movements,
+    }
+
+
+def _normalize_payment_destination(data):
+    metodo = (data.get('metodo_pago') or 'efectivo').strip().lower()
+    destino = (data.get('destino') or '').strip().lower()
+    if not destino:
+        destino = 'caja' if metodo == 'efectivo' else 'banco'
+    if destino not in ('caja', 'banco'):
+        raise ValueError('Payment destination must be caja or banco.')
+    return metodo, destino
+
+
+def _apply_payment_movement(data, monto):
+    metodo, destino = _normalize_payment_destination(data)
+    if destino == 'caja':
+        caja_id = data.get('id_caja')
+        queryset = DetalleUbicacion.objects.select_for_update()
+        detalle = (
+            queryset.filter(id_ubicacionfisica=caja_id).first()
+            if caja_id
+            else queryset.order_by('id').first()
+        )
+        if detalle is None:
+            raise ObjectDoesNotExist('No caja destination exists for payment.')
+        saldo_antes = detalle.saldoactual or 0
+        detalle.saldoactual = saldo_antes + monto
+        detalle.save(update_fields=['saldoactual'])
+        return metodo, destino, {
+            'tipo': 'caja',
+            'id_destino': detalle.id_ubicacionfisica,
+            'saldo_antes': saldo_antes,
+            'saldo_despues': detalle.saldoactual,
+        }
+
+    cuenta_id = data.get('id_cuenta_bancaria')
+    queryset = CuentaBancaria.objects.select_for_update()
+    cuenta = (
+        queryset.filter(id=cuenta_id).first()
+        if cuenta_id
+        else queryset.order_by('id').first()
+    )
+    if cuenta is None:
+        raise ObjectDoesNotExist('No bank account destination exists for payment.')
+    saldo_antes = cuenta.saldo or 0
+    cuenta.saldo = saldo_antes + monto
+    cuenta.save(update_fields=['saldo'])
+    return metodo, destino, {
+        'tipo': 'banco',
+        'id_destino': cuenta.id,
+        'saldo_antes': saldo_antes,
+        'saldo_despues': cuenta.saldo,
     }
 
 
@@ -574,10 +703,46 @@ def close_comanda(comanda_id, user):
 def register_nota_venta_payment(nota_venta_id, data, user):
     nota = Documento.objects.get(id=nota_venta_id)
     if nota.estatus not in ('Por Pagar', 'Pago Parcial'):
-        raise ValueError('Nota de venta {0} is not payable.'.format(nota_venta_id))
+        related_nota = Documento.objects.filter(
+            id_documentoorigen=nota.id,
+            estatus__in=['Por Pagar', 'Pago Parcial'],
+        ).order_by('-id').first()
+        errors = {
+            'id_documento': nota.id,
+            'estatus_actual': nota.estatus,
+            'estatus_permitidos': ['Por Pagar', 'Pago Parcial'],
+            'folio': nota.foliodocumento,
+        }
+        if related_nota:
+            errors['nota_venta_sugerida'] = {
+                'id': related_nota.id,
+                'folio': related_nota.foliodocumento,
+                'estatus': related_nota.estatus,
+                'monto': related_nota.monto,
+            }
+        raise DomainValidationError(
+            'Nota de venta {0} is not payable.'.format(nota_venta_id),
+            errors=errors,
+        )
 
     monto = _money_to_int(data.get('monto'))
-    destino = data.get('destino') or ('caja' if data.get('metodo_pago') == 'efectivo' else 'banco')
+    paid_before = sum(
+        _money_to_int(row.monto)
+        for row in PagoCliente.objects.filter(id_nota_venta=nota.id)
+    )
+    total = nota.monto or 0
+    remaining = total - paid_before
+    if monto > remaining:
+        raise DomainValidationError(
+            'Payment exceeds nota de venta balance.',
+            errors={
+                'monto': monto,
+                'saldo_pagado': paid_before,
+                'saldo_pendiente': remaining,
+            },
+        )
+
+    metodo_pago, destino, movement = _apply_payment_movement(data, monto)
     pago_doc = _new_documento(
         'Pago Cliente',
         'PCL',
@@ -593,17 +758,15 @@ def register_nota_venta_payment(nota_venta_id, data, user):
         PagoCliente,
         id_nota_venta=nota.id,
         id_documento_pago=pago_doc.id,
-        metodo_pago=data.get('metodo_pago') or 'efectivo',
+        metodo_pago=metodo_pago,
         destino=destino,
         monto=monto,
         estatus='Aplicado',
     )
 
-    paid_total = sum(
-        _money_to_int(row.monto)
-        for row in PagoCliente.objects.filter(id_nota_venta=nota.id)
-    )
-    nota.estatus = 'Pagada' if paid_total >= (nota.monto or 0) else 'Pago Parcial'
+    paid_total = paid_before + monto
+    pending_total = max(total - paid_total, 0)
+    nota.estatus = 'Pagada' if paid_total >= total else 'Pago Parcial'
     nota.save(update_fields=['estatus'])
     return {
         'id': pago.id,
@@ -614,4 +777,7 @@ def register_nota_venta_payment(nota_venta_id, data, user):
         'monto': str(pago.monto),
         'estatus': pago.estatus,
         'nota_venta_estatus': nota.estatus,
+        'saldo_pagado': paid_total,
+        'saldo_pendiente': pending_total,
+        'movimiento': movement,
     }

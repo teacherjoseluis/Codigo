@@ -285,6 +285,16 @@ def ensure_comanda_flow_config(dry_run=False, create_default_branch=True):
             descripcion='Area de preparacion por default',
             tipo='1',
         )
+        bar = _ensure_ubicacion(
+            summary,
+            dry_run,
+            key='ubicacion_area_preparacion',
+            table_name='Ubicacion_Fisica',
+            id_sucursal=sucursal.id,
+            nombre='Bar Principal',
+            descripcion='Area de bebidas por default',
+            tipo='1',
+        )
         mesa = _ensure_ubicacion(
             summary,
             dry_run,
@@ -296,10 +306,18 @@ def ensure_comanda_flow_config(dry_run=False, create_default_branch=True):
             tipo='2',
         )
         _ensure_detalle_ubicacion(summary, dry_run, area)
+        _ensure_detalle_ubicacion(summary, dry_run, bar)
         ingrediente = _ensure_registro_maestro(
             summary,
             dry_run,
             nombre='Ingrediente Demo',
+            tipo='I',
+            id_clasificacion=clasificacion.id,
+        )
+        ingrediente_bebida = _ensure_registro_maestro(
+            summary,
+            dry_run,
+            nombre='Ingrediente Bebida Demo',
             tipo='I',
             id_clasificacion=clasificacion.id,
         )
@@ -310,10 +328,27 @@ def ensure_comanda_flow_config(dry_run=False, create_default_branch=True):
             tipo='P',
             id_clasificacion=clasificacion.id,
         )
+        bebida = _ensure_registro_maestro(
+            summary,
+            dry_run,
+            nombre='Bebida Demo',
+            tipo='P',
+            id_clasificacion=clasificacion.id,
+        )
         _ensure_receta_item(summary, dry_run, platillo, ingrediente)
+        _ensure_receta_item(summary, dry_run, bebida, ingrediente_bebida)
         _ensure_stock_ingrediente(summary, dry_run, ingrediente, area)
+        _ensure_stock_ingrediente(summary, dry_run, ingrediente_bebida, bar)
         _ensure_comanda_runtime_config(summary, dry_run, sucursal)
         _ensure_routing_rule(summary, dry_run, sucursal, clasificacion, area)
+        _ensure_routing_rule(
+            summary,
+            dry_run,
+            sucursal,
+            clasificacion,
+            bar,
+            registro=bebida,
+        )
         folios = _ensure_comanda_folios(summary, dry_run, sucursal)
         movimientos = _ensure_comanda_movimientos(summary, dry_run)
         _ensure_comanda_conceptos(summary, dry_run, folios, movimientos)
@@ -512,10 +547,18 @@ def _ensure_comanda_runtime_config(summary, dry_run, sucursal):
         )
 
 
-def _ensure_routing_rule(summary, dry_run, sucursal, clasificacion, area):
+def _ensure_routing_rule(
+    summary,
+    dry_run,
+    sucursal,
+    clasificacion,
+    area,
+    registro=None,
+):
     if ReglaRuteoPreparacion.objects.filter(
         id_sucursal=sucursal.id,
         id_clasificacion=clasificacion.id,
+        id_registromaestro=registro.id if registro else None,
         id_area_preparacion=area.id,
     ).exists():
         return
@@ -525,7 +568,7 @@ def _ensure_routing_rule(summary, dry_run, sucursal, clasificacion, area):
             id=_next_legacy_id('Regla_RuteoPreparacion'),
             id_sucursal=sucursal.id,
             id_clasificacion=clasificacion.id,
-            id_registromaestro=None,
+            id_registromaestro=registro.id if registro else None,
             id_area_preparacion=area.id,
             modo_salida='terminal',
             estatus='Activo',
