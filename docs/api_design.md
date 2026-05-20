@@ -7,9 +7,9 @@ HTTP requests into domain operations and returns stable response shapes.
 ## Conventions
 
 - Base path: `/api/v1/`.
-- Authentication: Django `contrib.auth` users via DRF session/basic
-  authentication to start. Token auth can be added once client requirements are
-  clear.
+- Authentication: Django `contrib.auth` users via DRF token authentication.
+  Clients log in with `POST /api/v1/auth/login/` and send
+  `Authorization: Token <token>` on protected requests.
 - Permissions: require authenticated users by default. Treat
   `AuthUser_Sucursal` and `AuthUser_UbicacionFisica` as scoping tables, not as
   user sources of truth.
@@ -42,6 +42,9 @@ transactional workflow endpoints:
 ```text
 GET /api/v1/schema/
 GET /api/v1/health/
+POST /api/v1/auth/login/
+GET /api/v1/auth/me/
+POST /api/v1/auth/logout/
 GET /api/v1/sucursales/
 GET /api/v1/sucursales/{id}/
 GET /api/v1/catalogos/clasificaciones/

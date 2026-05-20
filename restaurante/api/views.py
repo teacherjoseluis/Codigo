@@ -1,12 +1,16 @@
 from django.core.exceptions import ObjectDoesNotExist
 from rest_framework import generics, status
+from rest_framework.authtoken.models import Token
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from restaurante.api.permissions import scoped_sucursal_ids, scoped_ubicacion_ids
 from restaurante.api.permissions import SucursalScopedQuerysetMixin
 from restaurante.api.serializers import (
     AsientoContableSerializer,
+    AuthTokenSerializer,
+    AuthUserSerializer,
     CatalogoClasificacionSerializer,
     ClaveFolioSerializer,
     ClienteSistemaSerializer,
@@ -83,6 +87,50 @@ class HealthAPIView(APIView):
                 'version': 'v1',
             }
         )
+
+
+class AuthLoginAPIView(generics.GenericAPIView):
+    permission_classes = [AllowAny]
+    serializer_class = AuthTokenSerializer
+
+    def post(self, request):
+        serializer = self.get_serializer(
+            data=request.data,
+            context={'request': request},
+        )
+        serializer.is_valid(raise_exception=True)
+        user = serializer.validated_data['user']
+        token, _ = Token.objects.get_or_create(user=user)
+        return Response(
+            {
+                'token': token.key,
+                'token_type': 'Token',
+                'user': AuthUserSerializer(user).data,
+                'scopes': {
+                    'sucursales': scoped_sucursal_ids(user),
+                    'ubicaciones': scoped_ubicacion_ids(user),
+                },
+            }
+        )
+
+
+class AuthMeAPIView(APIView):
+    def get(self, request):
+        return Response(
+            {
+                'user': AuthUserSerializer(request.user).data,
+                'scopes': {
+                    'sucursales': scoped_sucursal_ids(request.user),
+                    'ubicaciones': scoped_ubicacion_ids(request.user),
+                },
+            }
+        )
+
+
+class AuthLogoutAPIView(APIView):
+    def post(self, request):
+        Token.objects.filter(user=request.user).delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class SucursalSistemaListAPIView(SucursalScopedQuerysetMixin, generics.ListAPIView):

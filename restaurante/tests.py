@@ -813,6 +813,59 @@ class APISkeletonTests(LegacyFixtureMixin, TestCase):
         self.assertEqual(response.json()['request_id'], 'missing-route-id')
         self.assertEqual(response['X-Request-ID'], 'missing-route-id')
 
+    def test_token_auth_login_me_and_logout_flow(self):
+        login_response = self.client.post(
+            '/api/v1/auth/login/',
+            {
+                'username': 'api-user',
+                'password': 'secret',
+            },
+            format='json',
+        )
+
+        self.assertEqual(login_response.status_code, 200)
+        self.assertEqual(login_response.data['token_type'], 'Token')
+        self.assertTrue(login_response.data['token'])
+        self.assertEqual(login_response.data['user']['username'], 'api-user')
+        self.assertEqual(login_response.data['scopes']['sucursales'], [1])
+
+        token = login_response.data['token']
+        me_response = self.client.get(
+            '/api/v1/auth/me/',
+            HTTP_AUTHORIZATION='Token {0}'.format(token),
+        )
+        sucursales_response = self.client.get(
+            '/api/v1/sucursales/',
+            HTTP_AUTHORIZATION='Token {0}'.format(token),
+        )
+        logout_response = self.client.post(
+            '/api/v1/auth/logout/',
+            HTTP_AUTHORIZATION='Token {0}'.format(token),
+        )
+        revoked_response = self.client.get(
+            '/api/v1/auth/me/',
+            HTTP_AUTHORIZATION='Token {0}'.format(token),
+        )
+
+        self.assertEqual(me_response.status_code, 200)
+        self.assertEqual(me_response.data['user']['id'], self.user.id)
+        self.assertEqual(sucursales_response.status_code, 200)
+        self.assertEqual(logout_response.status_code, 204)
+        self.assertIn(revoked_response.status_code, (401, 403))
+
+    def test_token_login_rejects_invalid_credentials(self):
+        response = self.client.post(
+            '/api/v1/auth/login/',
+            {
+                'username': 'api-user',
+                'password': 'wrong',
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.data['code'], 'validation_error')
+
     def test_sucursal_list_and_detail_endpoints(self):
         self.client.force_authenticate(user=self.user)
 
@@ -1385,6 +1438,38 @@ class ComandaHighLevelAPITests(LegacyFixtureMixin, TestCase):
             id_ubicacionfisica=2,
             existencias=10,
         )
+
+    def _login_token(self):
+        login_response = self.client.post(
+            '/api/v1/auth/login/',
+            {
+                'username': 'waiter-api-user',
+                'password': 'secret',
+            },
+            format='json',
+        )
+        self.assertEqual(login_response.status_code, 200)
+        return login_response.data['token']
+
+    def test_comanda_endpoints_accept_token_authentication(self):
+        self.client.force_authenticate(user=None)
+        token = self._login_token()
+
+        response = self.client.post(
+            '/api/v1/comandas/',
+            {
+                'id_sucursal': 1,
+                'id_mesa': 3,
+                'numero_comensales': 2,
+                'tipo_orden': 'venta',
+            },
+            format='json',
+            HTTP_AUTHORIZATION='Token {0}'.format(token),
+        )
+
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.data['estatus'], 'Abierta')
+        self.assertEqual(response.data['id_mesero'], self.user.id)
 
     def test_waiter_order_preparation_delivery_close_and_payment_flow(self):
         create_response = self.client.post(

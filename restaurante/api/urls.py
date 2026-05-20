@@ -19,6 +19,9 @@ urlpatterns = [
         name='openapi-schema',
     ),
     path('health/', views.HealthAPIView.as_view(), name='health'),
+    path('auth/login/', views.AuthLoginAPIView.as_view(), name='auth-login'),
+    path('auth/me/', views.AuthMeAPIView.as_view(), name='auth-me'),
+    path('auth/logout/', views.AuthLogoutAPIView.as_view(), name='auth-logout'),
     path(
         'sucursales/',
         views.SucursalSistemaListAPIView.as_view(),

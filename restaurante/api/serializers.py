@@ -1,5 +1,6 @@
 from decimal import Decimal
 
+from django.contrib.auth import authenticate
 from rest_framework import serializers
 
 from restaurante.api.permissions import require_ubicacion_scope
@@ -27,6 +28,35 @@ from restaurante.models import (
     UbicacionFisica,
     UnidadMedida,
 )
+
+
+class AuthTokenSerializer(serializers.Serializer):
+    username = serializers.CharField()
+    password = serializers.CharField(trim_whitespace=False, write_only=True)
+
+    def validate(self, attrs):
+        request = self.context.get('request')
+        user = authenticate(
+            request=request,
+            username=attrs.get('username'),
+            password=attrs.get('password'),
+        )
+        if not user:
+            raise serializers.ValidationError('Unable to log in with provided credentials.')
+        if not user.is_active:
+            raise serializers.ValidationError('User account is disabled.')
+        attrs['user'] = user
+        return attrs
+
+
+class AuthUserSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    username = serializers.CharField()
+    email = serializers.EmailField(allow_blank=True)
+    first_name = serializers.CharField(allow_blank=True)
+    last_name = serializers.CharField(allow_blank=True)
+    is_staff = serializers.BooleanField()
+    is_superuser = serializers.BooleanField()
 
 
 class SucursalSistemaSerializer(serializers.ModelSerializer):
