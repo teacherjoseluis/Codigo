@@ -1370,6 +1370,10 @@
 
     renderTotals();
     updateOrderControls();
+
+    if (new URLSearchParams(window.location.search).get("demo") === "auto") {
+      window.setTimeout(runGuidedDemo, 900);
+    }
   </script>
 </body>
 </html>
