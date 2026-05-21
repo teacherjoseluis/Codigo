@@ -982,6 +982,7 @@
               <h3>Fast actions</h3>
               <p>Use the app bar search for an order, or start a new service flow.</p>
               <div class="actions">
+                <button class="button primary" id="run-demo">Run guided demo</button>
                 <button class="button primary">New table order</button>
                 <button class="button tonal">Takeaway / delivery</button>
                 <button class="button warning" id="offline-demo">Preview offline banner</button>
@@ -1303,10 +1304,29 @@
       `;
     }
 
+    async function runGuidedDemo() {
+      document.querySelector("[data-view='order']").click();
+      showSnackbar("Guided demo: adding draft items for Table 12.");
+      addDraftItem(document.querySelector("[data-name='Tacos al pastor']"));
+      await wait(650);
+      addDraftItem(document.querySelector("[data-name='Agua de jamaica']"));
+      await wait(900);
+      sendDraftItems();
+      await wait(1100);
+      markReadyDelivered();
+      await wait(1100);
+      requestPaymentFlow();
+    }
+
+    function wait(milliseconds) {
+      return new Promise((resolve) => window.setTimeout(resolve, milliseconds));
+    }
+
     document.querySelectorAll(".menu-item").forEach((button) => {
       button.addEventListener("click", () => addDraftItem(button));
     });
 
+    document.querySelector("#run-demo").addEventListener("click", runGuidedDemo);
     sendPrep.addEventListener("click", sendDraftItems);
     markDelivered.addEventListener("click", markReadyDelivered);
     requestPayment.addEventListener("click", requestPaymentFlow);
