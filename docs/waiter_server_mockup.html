@@ -1,0 +1,1355 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Waiter Ordering Mockup</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --brand: #6750a4;
+      --brand-dark: #4f378b;
+      --brand-container: #eaddff;
+      --accent: #006a60;
+      --accent-container: #9cf1e4;
+      --warning: #8a5100;
+      --warning-container: #ffddb2;
+      --success: #146c2e;
+      --success-container: #b9f6ca;
+      --error: #ba1a1a;
+      --error-container: #ffdad6;
+      --surface: #fffbfe;
+      --surface-variant: #e7e0ec;
+      --background: #f7f2fa;
+      --outline: #79747e;
+      --text: #1d1b20;
+      --muted: #625b71;
+      --radius-xl: 28px;
+      --radius-lg: 20px;
+      --radius-md: 14px;
+      --shadow-1: 0 1px 2px rgba(27, 27, 31, 0.16), 0 1px 3px rgba(27, 27, 31, 0.08);
+      --shadow-2: 0 8px 24px rgba(27, 27, 31, 0.14);
+      font-family: "Roboto", "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background:
+        radial-gradient(circle at top left, rgba(234, 221, 255, 0.9), transparent 32rem),
+        linear-gradient(135deg, #fffbfe 0%, #f7f2fa 54%, #eef7f5 100%);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    button,
+    input {
+      font: inherit;
+    }
+
+    .visually-hidden {
+      clip: rect(0 0 0 0);
+      clip-path: inset(50%);
+      height: 1px;
+      overflow: hidden;
+      position: absolute;
+      white-space: nowrap;
+      width: 1px;
+    }
+
+    .page {
+      max-width: 1440px;
+      margin: 0 auto;
+      padding: 32px;
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: minmax(280px, 0.85fr) minmax(680px, 1.4fr);
+      gap: 28px;
+      align-items: stretch;
+    }
+
+    .brief,
+    .mockup-shell,
+    .screen-card {
+      background: rgba(255, 251, 254, 0.86);
+      border: 1px solid rgba(121, 116, 126, 0.22);
+      border-radius: var(--radius-xl);
+      box-shadow: var(--shadow-2);
+    }
+
+    .brief {
+      padding: 28px;
+      position: sticky;
+      top: 24px;
+      align-self: start;
+    }
+
+    .eyebrow {
+      color: var(--brand-dark);
+      font-size: 0.78rem;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      margin: 0 0 12px;
+      text-transform: uppercase;
+    }
+
+    h1,
+    h2,
+    h3,
+    p {
+      margin-top: 0;
+    }
+
+    h1 {
+      font-size: clamp(2rem, 5vw, 4.4rem);
+      line-height: 0.95;
+      letter-spacing: -0.05em;
+      margin-bottom: 18px;
+    }
+
+    h2 {
+      font-size: 1.7rem;
+      margin-bottom: 10px;
+    }
+
+    h3 {
+      font-size: 1rem;
+      margin-bottom: 6px;
+    }
+
+    .lede,
+    .brief p,
+    .screen-card p {
+      color: var(--muted);
+      line-height: 1.55;
+    }
+
+    .brief-list {
+      display: grid;
+      gap: 12px;
+      list-style: none;
+      margin: 24px 0 0;
+      padding: 0;
+    }
+
+    .brief-list li {
+      align-items: start;
+      background: #fff;
+      border-radius: 18px;
+      box-shadow: var(--shadow-1);
+      display: grid;
+      gap: 4px;
+      grid-template-columns: 34px 1fr;
+      padding: 14px;
+    }
+
+    .brief-list span {
+      align-items: center;
+      background: var(--brand-container);
+      border-radius: 999px;
+      color: var(--brand-dark);
+      display: inline-flex;
+      font-weight: 800;
+      height: 34px;
+      justify-content: center;
+      width: 34px;
+    }
+
+    .brief-list strong {
+      display: block;
+      margin-bottom: 2px;
+    }
+
+    .mockup-shell {
+      overflow: hidden;
+    }
+
+    .top-app-bar {
+      align-items: center;
+      background: #fff;
+      border-bottom: 1px solid var(--surface-variant);
+      display: flex;
+      gap: 16px;
+      min-height: 80px;
+      padding: 16px 20px;
+    }
+
+    .logo {
+      align-items: center;
+      background: var(--brand);
+      border-radius: 18px;
+      color: #fff;
+      display: grid;
+      flex: 0 0 48px;
+      font-weight: 900;
+      height: 48px;
+      justify-items: center;
+      letter-spacing: -0.03em;
+      width: 48px;
+    }
+
+    .app-title {
+      min-width: 180px;
+    }
+
+    .app-title strong {
+      display: block;
+      font-size: 1.05rem;
+    }
+
+    .app-title small,
+    .stat small,
+    .table-card small,
+    .order-item small,
+    .notification small,
+    .payment-row small {
+      color: var(--muted);
+      display: block;
+    }
+
+    .search {
+      flex: 1;
+      position: relative;
+    }
+
+    .search input {
+      background: var(--background);
+      border: 1px solid transparent;
+      border-radius: 999px;
+      min-height: 48px;
+      outline: none;
+      padding: 0 18px 0 48px;
+      width: 100%;
+    }
+
+    .search::before {
+      content: "Search";
+      color: var(--muted);
+      font-size: 0.75rem;
+      left: 18px;
+      position: absolute;
+      top: 16px;
+    }
+
+    .connection-pill {
+      align-items: center;
+      background: #edf7ed;
+      border: 1px solid rgba(20, 108, 46, 0.22);
+      border-radius: 999px;
+      color: var(--success);
+      display: inline-flex;
+      font-size: 0.88rem;
+      font-weight: 700;
+      gap: 8px;
+      min-height: 40px;
+      padding: 0 14px;
+      white-space: nowrap;
+    }
+
+    .connection-pill::before {
+      background: var(--success);
+      border-radius: 999px;
+      content: "";
+      height: 8px;
+      width: 8px;
+    }
+
+    .app-body {
+      display: grid;
+      grid-template-columns: 92px minmax(390px, 0.9fr) minmax(360px, 0.78fr);
+      min-height: 760px;
+    }
+
+    .nav-rail {
+      background: #fffbfe;
+      border-right: 1px solid var(--surface-variant);
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      padding: 18px 12px;
+    }
+
+    .nav-button {
+      align-items: center;
+      background: transparent;
+      border: 0;
+      border-radius: 20px;
+      color: var(--muted);
+      cursor: pointer;
+      display: grid;
+      font-size: 0.76rem;
+      gap: 5px;
+      justify-items: center;
+      min-height: 66px;
+      padding: 8px 4px;
+    }
+
+    .nav-button .icon {
+      align-items: center;
+      border-radius: 18px;
+      display: flex;
+      font-size: 1.15rem;
+      height: 34px;
+      justify-content: center;
+      width: 54px;
+    }
+
+    .nav-button.active {
+      color: var(--brand-dark);
+      font-weight: 800;
+    }
+
+    .nav-button.active .icon {
+      background: var(--brand-container);
+    }
+
+    .main-pane,
+    .detail-pane {
+      padding: 22px;
+    }
+
+    .main-pane {
+      background: rgba(247, 242, 250, 0.76);
+      border-right: 1px solid var(--surface-variant);
+    }
+
+    .detail-pane {
+      background: #fff;
+    }
+
+    .pane-header {
+      align-items: start;
+      display: flex;
+      gap: 16px;
+      justify-content: space-between;
+      margin-bottom: 18px;
+    }
+
+    .pane-header h2 {
+      margin-bottom: 3px;
+    }
+
+    .chip-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 18px;
+    }
+
+    .chip,
+    .status-chip {
+      align-items: center;
+      border-radius: 999px;
+      display: inline-flex;
+      font-size: 0.82rem;
+      font-weight: 700;
+      min-height: 34px;
+      padding: 0 12px;
+    }
+
+    .chip {
+      background: #fff;
+      border: 1px solid var(--surface-variant);
+      color: var(--muted);
+    }
+
+    .chip.active {
+      background: var(--brand);
+      color: #fff;
+    }
+
+    .status-chip {
+      background: var(--surface-variant);
+      color: var(--muted);
+    }
+
+    .status-chip.ready {
+      background: var(--success-container);
+      color: var(--success);
+    }
+
+    .status-chip.warning {
+      background: var(--warning-container);
+      color: var(--warning);
+    }
+
+    .status-chip.error {
+      background: var(--error-container);
+      color: var(--error);
+    }
+
+    .stats {
+      display: grid;
+      gap: 12px;
+      grid-template-columns: repeat(3, 1fr);
+      margin-bottom: 18px;
+    }
+
+    .stat {
+      background: #fff;
+      border: 1px solid rgba(121, 116, 126, 0.18);
+      border-radius: 20px;
+      box-shadow: var(--shadow-1);
+      padding: 16px;
+    }
+
+    .stat strong {
+      display: block;
+      font-size: 2rem;
+      line-height: 1;
+      margin-bottom: 6px;
+    }
+
+    .floor-grid {
+      display: grid;
+      gap: 12px;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .table-card {
+      background: #fff;
+      border: 2px solid transparent;
+      border-radius: 22px;
+      box-shadow: var(--shadow-1);
+      cursor: pointer;
+      min-height: 130px;
+      padding: 16px;
+      position: relative;
+      text-align: left;
+      transition: transform 0.18s ease, border 0.18s ease, box-shadow 0.18s ease;
+    }
+
+    .table-card:hover,
+    .table-card.selected {
+      border-color: var(--brand);
+      box-shadow: var(--shadow-2);
+      transform: translateY(-2px);
+    }
+
+    .table-card strong {
+      display: block;
+      font-size: 1.4rem;
+      margin-bottom: 10px;
+    }
+
+    .table-card.available {
+      border-style: dashed;
+    }
+
+    .table-card.prep {
+      background: #f5edff;
+    }
+
+    .table-card.ready {
+      background: #eaf8ec;
+    }
+
+    .table-card.payment {
+      background: #fff7e8;
+    }
+
+    .badge {
+      background: var(--error);
+      border-radius: 999px;
+      color: #fff;
+      font-size: 0.72rem;
+      font-weight: 800;
+      line-height: 1;
+      padding: 6px 8px;
+      position: absolute;
+      right: 14px;
+      top: 14px;
+    }
+
+    .section {
+      background: #fff;
+      border: 1px solid rgba(121, 116, 126, 0.18);
+      border-radius: 24px;
+      box-shadow: var(--shadow-1);
+      margin-top: 16px;
+      padding: 18px;
+    }
+
+    .section:first-child {
+      margin-top: 0;
+    }
+
+    .order-heading {
+      align-items: start;
+      border-bottom: 1px solid var(--surface-variant);
+      display: flex;
+      gap: 12px;
+      justify-content: space-between;
+      margin: -2px 0 16px;
+      padding-bottom: 14px;
+    }
+
+    .order-heading h2 {
+      margin-bottom: 4px;
+    }
+
+    .timeline {
+      display: grid;
+      gap: 8px;
+      margin: 16px 0;
+    }
+
+    .timeline-step {
+      align-items: center;
+      color: var(--muted);
+      display: grid;
+      gap: 10px;
+      grid-template-columns: 28px 1fr;
+      min-height: 32px;
+    }
+
+    .timeline-step::before {
+      align-items: center;
+      background: var(--surface-variant);
+      border-radius: 999px;
+      content: "";
+      display: flex;
+      height: 14px;
+      justify-content: center;
+      justify-self: center;
+      width: 14px;
+    }
+
+    .timeline-step.done {
+      color: var(--text);
+      font-weight: 700;
+    }
+
+    .timeline-step.done::before {
+      background: var(--brand);
+      box-shadow: 0 0 0 5px var(--brand-container);
+    }
+
+    .timeline-step.ready::before {
+      background: var(--success);
+      box-shadow: 0 0 0 5px var(--success-container);
+    }
+
+    .menu-grid {
+      display: grid;
+      gap: 10px;
+      grid-template-columns: repeat(2, 1fr);
+    }
+
+    .menu-item {
+      align-items: start;
+      background: var(--background);
+      border: 1px solid transparent;
+      border-radius: 18px;
+      cursor: pointer;
+      display: grid;
+      gap: 8px;
+      min-height: 116px;
+      padding: 14px;
+      text-align: left;
+    }
+
+    .menu-item strong {
+      display: block;
+    }
+
+    .menu-item small {
+      color: var(--muted);
+    }
+
+    .price {
+      color: var(--brand-dark);
+      font-weight: 800;
+    }
+
+    .order-items {
+      display: grid;
+      gap: 10px;
+    }
+
+    .order-item,
+    .notification,
+    .payment-row {
+      align-items: center;
+      background: #fff;
+      border: 1px solid var(--surface-variant);
+      border-radius: 18px;
+      display: grid;
+      gap: 12px;
+      grid-template-columns: 1fr auto;
+      padding: 12px 14px;
+    }
+
+    .order-item.pending {
+      border-color: var(--brand-container);
+      background: #fbf7ff;
+    }
+
+    .order-item.ready {
+      border-color: var(--success-container);
+      background: #f2fff4;
+    }
+
+    .order-item strong,
+    .notification strong {
+      display: block;
+      margin-bottom: 2px;
+    }
+
+    .notification {
+      border-color: var(--success-container);
+      background: #f2fff4;
+    }
+
+    .notification.warning {
+      border-color: var(--warning-container);
+      background: #fff8ee;
+    }
+
+    .empty-state {
+      align-items: center;
+      background: linear-gradient(135deg, #fff, #f5edff);
+      border: 1px dashed var(--outline);
+      border-radius: 22px;
+      color: var(--muted);
+      display: grid;
+      min-height: 120px;
+      padding: 22px;
+      text-align: center;
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 16px;
+    }
+
+    .button {
+      align-items: center;
+      border: 0;
+      border-radius: 999px;
+      cursor: pointer;
+      display: inline-flex;
+      font-weight: 800;
+      gap: 8px;
+      justify-content: center;
+      min-height: 46px;
+      padding: 0 18px;
+      transition: transform 0.16s ease, box-shadow 0.16s ease, opacity 0.16s ease;
+    }
+
+    .button:hover:not(:disabled) {
+      box-shadow: var(--shadow-1);
+      transform: translateY(-1px);
+    }
+
+    .button:disabled {
+      cursor: not-allowed;
+      opacity: 0.44;
+    }
+
+    .button.primary {
+      background: var(--brand);
+      color: #fff;
+    }
+
+    .button.tonal {
+      background: var(--brand-container);
+      color: var(--brand-dark);
+    }
+
+    .button.success {
+      background: var(--success);
+      color: #fff;
+    }
+
+    .button.warning {
+      background: var(--warning-container);
+      color: var(--warning);
+    }
+
+    .totals {
+      display: grid;
+      gap: 8px;
+      margin-top: 14px;
+    }
+
+    .total-line {
+      color: var(--muted);
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .total-line.grand {
+      border-top: 1px solid var(--surface-variant);
+      color: var(--text);
+      font-size: 1.25rem;
+      font-weight: 900;
+      margin-top: 8px;
+      padding-top: 12px;
+    }
+
+    .snackbar {
+      align-items: center;
+      background: #322f35;
+      border-radius: 16px;
+      bottom: 24px;
+      box-shadow: var(--shadow-2);
+      color: #fff;
+      display: flex;
+      gap: 16px;
+      left: 50%;
+      max-width: min(540px, calc(100vw - 32px));
+      min-height: 54px;
+      opacity: 0;
+      padding: 12px 18px;
+      pointer-events: none;
+      position: fixed;
+      transform: translate(-50%, 22px);
+      transition: opacity 0.18s ease, transform 0.18s ease;
+      z-index: 10;
+    }
+
+    .snackbar.show {
+      opacity: 1;
+      transform: translate(-50%, 0);
+    }
+
+    .screens {
+      display: grid;
+      gap: 18px;
+      grid-template-columns: repeat(3, 1fr);
+      margin-top: 28px;
+    }
+
+    .screen-card {
+      box-shadow: var(--shadow-1);
+      padding: 20px;
+    }
+
+    .mini-wire {
+      background: var(--background);
+      border-radius: 20px;
+      display: grid;
+      gap: 8px;
+      min-height: 150px;
+      padding: 14px;
+    }
+
+    .mini-wire div {
+      background: #fff;
+      border-radius: 999px;
+      min-height: 16px;
+    }
+
+    .mini-wire .wide {
+      width: 100%;
+    }
+
+    .mini-wire .medium {
+      width: 72%;
+    }
+
+    .mini-wire .short {
+      width: 48%;
+    }
+
+    .mini-wire .block {
+      border-radius: 16px;
+      min-height: 58px;
+      width: 100%;
+    }
+
+    @media (max-width: 1180px) {
+      .page {
+        padding: 20px;
+      }
+
+      .hero {
+        grid-template-columns: 1fr;
+      }
+
+      .brief {
+        position: static;
+      }
+
+      .screens {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 900px) {
+      .top-app-bar {
+        align-items: stretch;
+        flex-direction: column;
+      }
+
+      .connection-pill {
+        justify-content: center;
+      }
+
+      .app-body {
+        grid-template-columns: 1fr;
+      }
+
+      .nav-rail {
+        border-bottom: 1px solid var(--surface-variant);
+        border-right: 0;
+        flex-direction: row;
+        overflow-x: auto;
+      }
+
+      .nav-button {
+        min-width: 82px;
+      }
+
+      .main-pane {
+        border-right: 0;
+      }
+    }
+
+    @media (max-width: 640px) {
+      .page {
+        padding: 12px;
+      }
+
+      .stats,
+      .floor-grid,
+      .menu-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .pane-header,
+      .order-heading {
+        display: grid;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <section class="hero" aria-labelledby="mockup-title">
+      <aside class="brief">
+        <p class="eyebrow">Material Design 3 mockup</p>
+        <h1 id="mockup-title">Server and waiter order flow</h1>
+        <p class="lede">
+          A first clickable concept for staff taking table orders, receiving ready
+          notifications, delivering items, and moving the check toward payment.
+        </p>
+        <ul class="brief-list" aria-label="Flow highlights">
+          <li>
+            <span>1</span>
+            <div>
+              <strong>Start from the floor</strong>
+              Choose a dining area, see live table states, and open the active comanda.
+            </div>
+          </li>
+          <li>
+            <span>2</span>
+            <div>
+              <strong>Capture and send items</strong>
+              Add menu items with route hints, then submit draft items to preparation.
+            </div>
+          </li>
+          <li>
+            <span>3</span>
+            <div>
+              <strong>React to ready alerts</strong>
+              In-app notifications deep link to ready items for handoff.
+            </div>
+          </li>
+          <li>
+            <span>4</span>
+            <div>
+              <strong>Resolve the check</strong>
+              Mark delivered items and expose payment-ready totals for cashier or server.
+            </div>
+          </li>
+        </ul>
+      </aside>
+
+      <section class="mockup-shell" aria-label="Interactive waiter mockup">
+        <header class="top-app-bar">
+          <div class="logo" aria-hidden="true">SR</div>
+          <div class="app-title">
+            <strong>Restaurante Patio Norte</strong>
+            <small>Maria Garcia - Server - Salon principal</small>
+          </div>
+          <label class="search">
+            <span class="visually-hidden">Search orders, tables, or customers</span>
+            <input aria-label="Search orders, tables, or customers" placeholder="Order, table, phone, item">
+          </label>
+          <div class="connection-pill" id="sync-status">Online - synced 1 min ago</div>
+        </header>
+
+        <div class="app-body">
+          <nav class="nav-rail" aria-label="Primary">
+            <button class="nav-button active" data-view="tables">
+              <span class="icon" aria-hidden="true">T</span>
+              Tables
+            </button>
+            <button class="nav-button" data-view="order">
+              <span class="icon" aria-hidden="true">O</span>
+              Order
+            </button>
+            <button class="nav-button" data-view="ready">
+              <span class="icon" aria-hidden="true">R</span>
+              Ready
+            </button>
+            <button class="nav-button" data-view="payment">
+              <span class="icon" aria-hidden="true">$</span>
+              Pay
+            </button>
+            <button class="nav-button" data-view="alerts">
+              <span class="icon" aria-hidden="true">!</span>
+              Alerts
+            </button>
+          </nav>
+
+          <section class="main-pane" aria-live="polite">
+            <div class="pane-header">
+              <div>
+                <p class="eyebrow">Shift dashboard</p>
+                <h2 id="main-title">Table map</h2>
+                <p id="main-subtitle">Select a table or continue Table 12's open order.</p>
+              </div>
+              <span class="status-chip ready" id="ready-count">2 ready</span>
+            </div>
+
+            <div class="stats" aria-label="Service metrics">
+              <div class="stat">
+                <strong>9</strong>
+                <small>Open orders</small>
+              </div>
+              <div class="stat">
+                <strong id="stat-ready">2</strong>
+                <small>Ready to deliver</small>
+              </div>
+              <div class="stat">
+                <strong>3</strong>
+                <small>Need payment</small>
+              </div>
+            </div>
+
+            <div class="chip-row" aria-label="Area filters">
+              <span class="chip active">Salon principal</span>
+              <span class="chip">Terraza</span>
+              <span class="chip">Bar</span>
+              <span class="chip">Delivery</span>
+            </div>
+
+            <div class="floor-grid" id="floor-grid">
+              <button class="table-card available" data-table="8">
+                <strong>Table 8</strong>
+                <span class="status-chip">Available</span>
+                <small>Ready for seating</small>
+              </button>
+              <button class="table-card prep" data-table="10">
+                <strong>Table 10</strong>
+                <span class="status-chip">Preparing</span>
+                <small>2 guests - 18 min</small>
+              </button>
+              <button class="table-card selected ready" data-table="12">
+                <span class="badge" id="table-ready-badge">2</span>
+                <strong>Table 12</strong>
+                <span class="status-chip ready" id="table-12-status">Partially ready</span>
+                <small>4 guests - Maria - #C-1048</small>
+              </button>
+              <button class="table-card payment" data-table="14">
+                <strong>Table 14</strong>
+                <span class="status-chip warning">Needs payment</span>
+                <small>2 guests - $42.70</small>
+              </button>
+              <button class="table-card prep" data-table="16">
+                <strong>Table 16</strong>
+                <span class="status-chip">Sent</span>
+                <small>6 guests - kitchen 7 min</small>
+              </button>
+              <button class="table-card available" data-table="18">
+                <strong>Table 18</strong>
+                <span class="status-chip">Available</span>
+                <small>Cleaned 3 min ago</small>
+              </button>
+            </div>
+
+            <div class="section" id="main-context">
+              <h3>Fast actions</h3>
+              <p>Use the app bar search for an order, or start a new service flow.</p>
+              <div class="actions">
+                <button class="button primary">New table order</button>
+                <button class="button tonal">Takeaway / delivery</button>
+                <button class="button warning" id="offline-demo">Preview offline banner</button>
+              </div>
+            </div>
+          </section>
+
+          <aside class="detail-pane" aria-label="Order detail">
+            <div class="order-heading">
+              <div>
+                <p class="eyebrow">Comanda #C-1048</p>
+                <h2>Table 12</h2>
+                <p>4 guests - opened 22 min ago - server Maria</p>
+              </div>
+              <span class="status-chip ready" id="order-status">Partially ready</span>
+            </div>
+
+            <div class="timeline" aria-label="Order state">
+              <div class="timeline-step done">Draft created and table assigned</div>
+              <div class="timeline-step done" id="timeline-sent">Items sent to preparation</div>
+              <div class="timeline-step ready" id="timeline-ready">Kitchen marked 2 items ready</div>
+              <div class="timeline-step" id="timeline-delivered">Ready items delivered</div>
+              <div class="timeline-step" id="timeline-payment">Payment requested</div>
+            </div>
+
+            <section class="section">
+              <h3>Add menu items</h3>
+              <div class="chip-row">
+                <span class="chip active">Favorites</span>
+                <span class="chip">Mains</span>
+                <span class="chip">Drinks</span>
+                <span class="chip">Desserts</span>
+              </div>
+              <div class="menu-grid">
+                <button class="menu-item" data-name="Tacos al pastor" data-price="11.50" data-route="Kitchen">
+                  <strong>Tacos al pastor</strong>
+                  <small>Kitchen - modifiers available</small>
+                  <span class="price">$11.50</span>
+                </button>
+                <button class="menu-item" data-name="Agua de jamaica" data-price="3.75" data-route="Bar">
+                  <strong>Agua de jamaica</strong>
+                  <small>Bar - quick add</small>
+                  <span class="price">$3.75</span>
+                </button>
+                <button class="menu-item" data-name="Guacamole" data-price="8.25" data-route="Kitchen">
+                  <strong>Guacamole</strong>
+                  <small>Kitchen - shared starter</small>
+                  <span class="price">$8.25</span>
+                </button>
+                <button class="menu-item" data-name="Flan de la casa" data-price="6.00" data-route="Kitchen">
+                  <strong>Flan de la casa</strong>
+                  <small>Kitchen - dessert</small>
+                  <span class="price">$6.00</span>
+                </button>
+              </div>
+            </section>
+
+            <section class="section">
+              <div class="pane-header">
+                <div>
+                  <h3>Items</h3>
+                  <p id="item-summary">2 ready, 1 in preparation, 0 draft</p>
+                </div>
+                <span class="status-chip warning" id="draft-chip">No draft items</span>
+              </div>
+              <div class="order-items" id="order-items">
+                <div class="order-item ready">
+                  <div>
+                    <strong>2 x Agua de jamaica</strong>
+                    <small>Ready - Bar - no ice for seat 3</small>
+                  </div>
+                  <span class="price">$7.50</span>
+                </div>
+                <div class="order-item ready">
+                  <div>
+                    <strong>1 x Guacamole</strong>
+                    <small>Ready - Kitchen - extra lime</small>
+                  </div>
+                  <span class="price">$8.25</span>
+                </div>
+                <div class="order-item">
+                  <div>
+                    <strong>3 x Tacos al pastor</strong>
+                    <small>In preparation - Kitchen - one without onion</small>
+                  </div>
+                  <span class="price">$34.50</span>
+                </div>
+              </div>
+
+              <div class="totals">
+                <div class="total-line"><span>Subtotal</span><span id="subtotal">$50.25</span></div>
+                <div class="total-line"><span>Tax estimate</span><span id="tax">$4.02</span></div>
+                <div class="total-line grand"><span>Total</span><span id="total">$54.27</span></div>
+              </div>
+
+              <div class="actions">
+                <button class="button primary" id="send-prep" disabled>Send draft items</button>
+                <button class="button success" id="mark-delivered">Mark ready items delivered</button>
+                <button class="button tonal" id="request-payment" disabled>Request payment</button>
+              </div>
+            </section>
+
+            <section class="section">
+              <h3>Notification center</h3>
+              <div class="order-items" id="notifications">
+                <div class="notification" id="ready-notification">
+                  <div>
+                    <strong>Table 12 has 2 ready items</strong>
+                    <small>Tap to review and mark delivered. Event N-3021.</small>
+                  </div>
+                  <span class="status-chip ready">Ready</span>
+                </div>
+                <div class="notification warning">
+                  <div>
+                    <strong>Table 14 awaiting payment</strong>
+                    <small>Open check has been idle for 9 min.</small>
+                  </div>
+                  <span class="status-chip warning">Pay</span>
+                </div>
+              </div>
+            </section>
+          </aside>
+        </div>
+      </section>
+    </section>
+
+    <section class="screens" aria-label="Additional screen concepts">
+      <article class="screen-card">
+        <div class="mini-wire" aria-hidden="true">
+          <div class="wide"></div>
+          <div class="block"></div>
+          <div class="medium"></div>
+          <div class="short"></div>
+        </div>
+        <h3>Sign in and device setup</h3>
+        <p>Staff authentication, branch/location scope, push permission, device label, and offline reachability states.</p>
+      </article>
+      <article class="screen-card">
+        <div class="mini-wire" aria-hidden="true">
+          <div class="short"></div>
+          <div class="block"></div>
+          <div class="block"></div>
+          <div class="medium"></div>
+        </div>
+        <h3>Item customization sheet</h3>
+        <p>Quantity, modifiers, cooking notes, allergens, and validation for required choices before sending to preparation.</p>
+      </article>
+      <article class="screen-card">
+        <div class="mini-wire" aria-hidden="true">
+          <div class="medium"></div>
+          <div class="wide"></div>
+          <div class="block"></div>
+          <div class="short"></div>
+        </div>
+        <h3>Payment detail</h3>
+        <p>Itemized totals, payment method selection, cash received/change due, ambiguous outcome handling, and receipt actions.</p>
+      </article>
+    </section>
+  </main>
+
+  <div class="snackbar" id="snackbar" role="status" aria-live="polite"></div>
+
+  <script>
+    const state = {
+      draftItems: [],
+      deliveredReadyItems: false,
+      offlinePreview: false,
+      subtotal: 50.25,
+    };
+
+    const money = new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
+    });
+
+    const snackbar = document.querySelector("#snackbar");
+    const orderItems = document.querySelector("#order-items");
+    const itemSummary = document.querySelector("#item-summary");
+    const draftChip = document.querySelector("#draft-chip");
+    const sendPrep = document.querySelector("#send-prep");
+    const markDelivered = document.querySelector("#mark-delivered");
+    const requestPayment = document.querySelector("#request-payment");
+    const subtotal = document.querySelector("#subtotal");
+    const tax = document.querySelector("#tax");
+    const total = document.querySelector("#total");
+    const orderStatus = document.querySelector("#order-status");
+    const readyCount = document.querySelector("#ready-count");
+    const statReady = document.querySelector("#stat-ready");
+    const readyNotification = document.querySelector("#ready-notification");
+    const tableReadyBadge = document.querySelector("#table-ready-badge");
+    const tableStatus = document.querySelector("#table-12-status");
+    const timelineDelivered = document.querySelector("#timeline-delivered");
+    const timelinePayment = document.querySelector("#timeline-payment");
+    const syncStatus = document.querySelector("#sync-status");
+
+    function showSnackbar(message) {
+      snackbar.textContent = message;
+      snackbar.classList.add("show");
+      window.clearTimeout(showSnackbar.timeout);
+      showSnackbar.timeout = window.setTimeout(() => {
+        snackbar.classList.remove("show");
+      }, 3200);
+    }
+
+    function renderTotals() {
+      const taxValue = state.subtotal * 0.08;
+      subtotal.textContent = money.format(state.subtotal);
+      tax.textContent = money.format(taxValue);
+      total.textContent = money.format(state.subtotal + taxValue);
+    }
+
+    function updateOrderControls() {
+      const draftCount = state.draftItems.length;
+      sendPrep.disabled = draftCount === 0;
+      draftChip.textContent = draftCount === 0 ? "No draft items" : `${draftCount} draft item${draftCount > 1 ? "s" : ""}`;
+      draftChip.className = draftCount === 0 ? "status-chip warning" : "status-chip";
+
+      if (state.deliveredReadyItems) {
+        markDelivered.disabled = true;
+        requestPayment.disabled = false;
+        orderStatus.textContent = "Payment ready";
+        orderStatus.className = "status-chip warning";
+        readyCount.textContent = "0 ready";
+        statReady.textContent = "0";
+        tableStatus.textContent = "Needs payment";
+        tableStatus.className = "status-chip warning";
+        tableReadyBadge.style.display = "none";
+        readyNotification.innerHTML = `
+          <div>
+            <strong>Table 12 ready items delivered</strong>
+            <small>Payment can now be requested. Event N-3021 resolved.</small>
+          </div>
+          <span class="status-chip warning">Pay</span>
+        `;
+        timelineDelivered.classList.add("done");
+      }
+
+      itemSummary.textContent = state.deliveredReadyItems
+        ? `${draftCount} draft, 1 in preparation, ready items delivered`
+        : `2 ready, 1 in preparation, ${draftCount} draft`;
+    }
+
+    function addDraftItem(menuButton) {
+      const name = menuButton.dataset.name;
+      const price = Number(menuButton.dataset.price);
+      const route = menuButton.dataset.route;
+      const item = { name, price, route };
+      state.draftItems.push(item);
+      state.subtotal += price;
+
+      const row = document.createElement("div");
+      row.className = "order-item pending";
+      row.dataset.draft = "true";
+      row.innerHTML = `
+        <div>
+          <strong>1 x ${name}</strong>
+          <small>Draft - ${route} - tap to customize modifiers</small>
+        </div>
+        <span class="price">${money.format(price)}</span>
+      `;
+      orderItems.appendChild(row);
+      renderTotals();
+      updateOrderControls();
+      showSnackbar(`${name} added as a draft item.`);
+    }
+
+    function sendDraftItems() {
+      const draftRows = orderItems.querySelectorAll("[data-draft='true']");
+      draftRows.forEach((row) => {
+        row.classList.remove("pending");
+        row.removeAttribute("data-draft");
+        const detail = row.querySelector("small");
+        detail.textContent = detail.textContent.replace("Draft", "Sent to preparation");
+      });
+      const sent = state.draftItems.length;
+      state.draftItems = [];
+      updateOrderControls();
+      showSnackbar(`${sent} item${sent > 1 ? "s" : ""} sent to preparation. Request ID RQ-8M42.`);
+    }
+
+    function markReadyDelivered() {
+      state.deliveredReadyItems = true;
+      orderItems.querySelectorAll(".order-item.ready").forEach((row) => {
+        row.classList.remove("ready");
+        const detail = row.querySelector("small");
+        detail.textContent = detail.textContent.replace("Ready", "Delivered");
+      });
+      updateOrderControls();
+      showSnackbar("Ready items marked delivered for Table 12.");
+    }
+
+    function requestPaymentFlow() {
+      timelinePayment.classList.add("done");
+      showSnackbar("Payment request opened with current total and delivered-item check.");
+      document.querySelector("[data-view='payment']").click();
+      document.querySelector("#main-title").textContent = "Payment detail";
+      document.querySelector("#main-subtitle").textContent = "Review totals, choose method, and keep ambiguous payment outcomes visible.";
+      document.querySelector("#main-context").innerHTML = `
+        <h3>Payment ready for Table 12</h3>
+        <div class="payment-row">
+          <div>
+            <strong>Remaining balance</strong>
+            <small>Includes tax estimate. Server totals remain authoritative.</small>
+          </div>
+          <span class="price">${total.textContent}</span>
+        </div>
+        <div class="payment-row">
+          <div>
+            <strong>Suggested methods</strong>
+            <small>Cash, card, transfer, voucher, or mixed payment.</small>
+          </div>
+          <span class="status-chip">Select</span>
+        </div>
+        <div class="actions">
+          <button class="button primary">Record cash</button>
+          <button class="button tonal">Card terminal</button>
+          <button class="button warning">Mark needs review</button>
+        </div>
+      `;
+    }
+
+    document.querySelectorAll(".menu-item").forEach((button) => {
+      button.addEventListener("click", () => addDraftItem(button));
+    });
+
+    sendPrep.addEventListener("click", sendDraftItems);
+    markDelivered.addEventListener("click", markReadyDelivered);
+    requestPayment.addEventListener("click", requestPaymentFlow);
+
+    document.querySelector("#offline-demo").addEventListener("click", () => {
+      state.offlinePreview = !state.offlinePreview;
+      syncStatus.textContent = state.offlinePreview
+        ? "Offline - 1 draft command can be queued"
+        : "Online - synced 1 min ago";
+      syncStatus.style.background = state.offlinePreview ? "var(--warning-container)" : "#edf7ed";
+      syncStatus.style.color = state.offlinePreview ? "var(--warning)" : "var(--success)";
+      showSnackbar(state.offlinePreview
+        ? "Offline preview: final payments and close actions stay disabled."
+        : "Back online: pending sync review is available in diagnostics.");
+    });
+
+    document.querySelectorAll(".nav-button").forEach((button) => {
+      button.addEventListener("click", () => {
+        document.querySelectorAll(".nav-button").forEach((navButton) => navButton.classList.remove("active"));
+        button.classList.add("active");
+        const view = button.dataset.view;
+        const titles = {
+          tables: ["Table map", "Select a table or continue Table 12's open order."],
+          order: ["Order workspace", "Add items, send drafts, mark ready items delivered, and request payment."],
+          ready: ["Ready handoff", "Deep-linked alerts show items waiting for delivery or pickup."],
+          payment: ["Payment detail", "Review totals and record a supported payment method."],
+          alerts: ["Notification center", "Ready items, payment failures, sync conflicts, and override requests."],
+        };
+        document.querySelector("#main-title").textContent = titles[view][0];
+        document.querySelector("#main-subtitle").textContent = titles[view][1];
+      });
+    });
+
+    document.querySelectorAll(".table-card").forEach((button) => {
+      button.addEventListener("click", () => {
+        document.querySelectorAll(".table-card").forEach((table) => table.classList.remove("selected"));
+        button.classList.add("selected");
+        showSnackbar(`${button.querySelector("strong").textContent} selected.`);
+      });
+    });
+
+    renderTotals();
+    updateOrderControls();
+  </script>
+</body>
+</html>
